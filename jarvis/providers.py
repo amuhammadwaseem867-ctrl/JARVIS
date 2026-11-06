@@ -4,15 +4,26 @@ JARVIS can run on several providers. Pick one with ``JARVIS_PROVIDER`` (or
 ``python -m jarvis --provider groq``). Without it, JARVIS uses the first
 provider whose API key it finds, in this order:
 
-| provider | key variable        | cost                         | default model            |
-|----------|---------------------|------------------------------|--------------------------|
-| groq     | ``GROQ_API_KEY``    | free tier, no card           | llama-3.3-70b-versatile  |
-| gemini   | ``GEMINI_API_KEY``  | free tier, no card           | gemini-2.5-flash         |
-| claude   | ``ANTHROPIC_API_KEY`` | paid                       | claude-opus-5-5          |
-| ollama   | none                | free, runs on your computer  | llama3.1                 |
+| provider   | key variable          | cost                        | default model            |
+|------------|-----------------------|-----------------------------|--------------------------|
+| groq       | ``GROQ_API_KEY``      | free tier, no card          | openai/gpt-oss-120b      |
+| gemini     | ``GEMINI_API_KEY``    | free tier, no card          | gemini-2.5-flash         |
+| openrouter | ``OPENROUTER_API_KEY``| free models, no card        | openrouter/free          |
+| mistral    | ``MISTRAL_API_KEY``   | free "Experiment" plan      | mistral-small-latest     |
+| cerebras   | ``CEREBRAS_API_KEY``  | one-time $5 trial, card     | gpt-oss-120b             |
+| claude     | ``ANTHROPIC_API_KEY`` | paid                        | claude-opus-5-5          |
+| ollama     | none                  | free, runs on your computer | llama3.1                 |
 
-Groq, Gemini and Ollama all speak the OpenAI "chat completions" format, so one
-small client (standard library only, no extra packages) covers all three.
+``JARVIS_<PROVIDER>_MODEL`` (e.g. ``JARVIS_GROQ_MODEL``) changes one
+provider's model; ``JARVIS_MODEL`` changes the main provider's model.
+
+**Auto-switch.** When the main free provider hits its rate limit (or fails),
+JARVIS asks the next free provider you have a key for, so you can keep
+talking. ``JARVIS_FALLBACK`` controls it: ``auto`` (default: every other free
+provider with a key), a list such as ``cerebras,gemini``, or ``none``.
+
+All the free providers speak the OpenAI "chat completions" format, so one
+small client (standard library only, no extra packages) covers them all.
 
 The conversation is always stored in Claude's message format, whichever
 provider is active. ``OpenAICompatProvider`` translates it on the way out and
@@ -22,42 +33,66 @@ and you can switch providers without losing the conversation.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-PROVIDERS = ("groq", "gemini", "claude", "ollama")
+log = logging.getLogger("jarvis.providers")
+
+PROVIDERS = ("groq", "gemini", "openrouter", "mistral", "cerebras", "claude", "ollama")
+# Free providers that need a key, in the order JARVIS prefers them.
+FREE_PROVIDERS = ("groq", "gemini", "openrouter", "mistral", "cerebras")
 
 DEFAULT_MODELS = {
     "claude": "claude-opus-5-5",
-    "groq": "llama-3.3-70b-versatile",
+    # Groq retired Llama 3.3 70B for free accounts in August 2026.
+    "groq": "openai/gpt-oss-120b",
+    "cerebras": "gpt-oss-120b",
     "gemini": "gemini-2.5-flash",
+    # OpenRouter's own router: picks a free model that supports tools.
+    "openrouter": "openrouter/free",
+    "mistral": "mistral-small-latest",
     "ollama": "llama3.1",
 }
 
 BASE_URLS = {
     "groq": "https://api.groq.com/openai/v1",
+    "cerebras": "https://api.cerebras.ai/v1",
     "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "openrouter": "https://openrouter.ai/api/v1",
+    "mistral": "https://api.mistral.ai/v1",
     "ollama": "http://localhost:11434/v1",
 }
 
 KEY_VARS = {
     "groq": ("GROQ_API_KEY",),
+    "cerebras": ("CEREBRAS_API_KEY",),
     "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+    "openrouter": ("OPENROUTER_API_KEY",),
+    "mistral": ("MISTRAL_API_KEY",),
     "claude": ("ANTHROPIC_API_KEY",),
     "ollama": (),
 }
 
 KEY_PAGES = {
     "groq": "https://console.groq.com/keys",
+    "cerebras": "https://cloud.cerebras.ai",
     "gemini": "https://aistudio.google.com/apikey",
+    "openrouter": "https://openrouter.ai/keys",
+    "mistral": "https://console.mistral.ai/api-keys",
     "claude": "https://platform.claude.com",
 }
+
+# Seconds to skip a provider after it hit its rate limit or failed.
+COOLDOWN = 60.0
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
@@ -110,14 +145,56 @@ def detect_provider() -> str:
                 f"Unknown JARVIS_PROVIDER '{chosen}'. Choose from: {', '.join(PROVIDERS)}"
             )
         return chosen
-    for name in ("groq", "gemini", "claude"):
+    for name in FREE_PROVIDERS + ("claude",):
         if _key_for(name):
             return name
     return "claude"  # nothing set: keeps the old behaviour and error message
 
 
+def model_for(name: str, main: str = "", main_model: str = "") -> str:
+    """The model to use for provider ``name``."""
+    if name == main and main_model:
+        return main_model
+    return os.environ.get(f"JARVIS_{name.upper()}_MODEL") or DEFAULT_MODELS[name]
+
+
+def fallback_names(main: str) -> list[str]:
+    """Free providers to try after ``main``, from ``JARVIS_FALLBACK``."""
+    if main not in FREE_PROVIDERS and main != "ollama":
+        return []  # Claude: no switching to other services behind your back
+    setting = os.environ.get("JARVIS_FALLBACK", "auto").strip().lower()
+    if setting in ("", "none", "off", "0", "no", "false"):
+        return []
+    if setting == "auto":
+        names = [n for n in FREE_PROVIDERS if _key_for(n)]
+    else:
+        names = [n.strip() for n in setting.split(",") if n.strip()]
+        unknown = [n for n in names if n not in BASE_URLS]
+        if unknown:
+            raise SetupError(
+                f"Unknown provider(s) in JARVIS_FALLBACK: {', '.join(unknown)}. "
+                f"Choose from: {', '.join(n for n in PROVIDERS if n != 'claude')}"
+            )
+        names = [n for n in names if n == "ollama" or _key_for(n)]
+    return [n for n in dict.fromkeys(names) if n != main]
+
+
+def _compat(name: str, config: Any, model: str) -> "OpenAICompatProvider":
+    if name not in BASE_URLS:
+        raise SetupError(f"Unknown provider '{name}'. Choose from: {', '.join(PROVIDERS)}")
+    key = _key_for(name)
+    if not key and name != "ollama":
+        raise SetupError(
+            f"No API key for {name}. Get a free one at {KEY_PAGES[name]} and set "
+            f"{KEY_VARS[name][0]}, for example in PowerShell:\n"
+            f'    $env:{KEY_VARS[name][0]}="your-key-here"'
+        )
+    base = os.environ.get(f"JARVIS_{name.upper()}_URL", BASE_URLS[name])
+    return OpenAICompatProvider(name, base, key or "ollama", config, model=model)
+
+
 def make_provider(config: Any, client: Any | None = None) -> "Provider":
-    """Build the provider ``config.provider`` names.
+    """Build the provider ``config.provider`` names, plus any fallbacks.
 
     ``client`` is an Anthropic client (tests pass a fake one); it is only used
     for Claude.
@@ -129,17 +206,9 @@ def make_provider(config: Any, client: Any | None = None) -> "Provider":
 
             client = anthropic.Anthropic()
         return ClaudeProvider(client, config)
-    if name not in BASE_URLS:
-        raise SetupError(f"Unknown provider '{name}'. Choose from: {', '.join(PROVIDERS)}")
-    key = _key_for(name)
-    if not key and name != "ollama":
-        raise SetupError(
-            f"No API key for {name}. Get a free one at {KEY_PAGES[name]} and set "
-            f"{KEY_VARS[name][0]}, for example in PowerShell:\n"
-            f'    $env:{KEY_VARS[name][0]}="your-key-here"'
-        )
-    base = os.environ.get(f"JARVIS_{name.upper()}_URL", BASE_URLS[name])
-    return OpenAICompatProvider(name, base, key or "ollama", config)
+    main = _compat(name, config, config.model)
+    backups = [_compat(n, config, model_for(n)) for n in fallback_names(name)]
+    return FallbackProvider([main] + backups) if backups else main
 
 
 # ------------------------------------------------------------------- Claude
@@ -244,6 +313,7 @@ class Response:
     content: list[Block]
     stop_reason: str
     model: str
+    provider: str = ""
 
 
 _STOP = {"stop": "end_turn", "tool_calls": "tool_use", "length": "max_tokens",
@@ -262,8 +332,9 @@ def http_post(url: str, headers: dict[str, str], body: dict[str, Any], timeout: 
 
 class OpenAICompatProvider(Provider):
     def __init__(self, name: str, base_url: str, api_key: str, config: Any,
-                 post: Post | None = None):
+                 post: Post | None = None, model: str | None = None):
         self.name = name
+        self.model = model or config.model
         self.url = base_url.rstrip("/") + "/chat/completions"
         self.api_key = api_key
         self.config = config
@@ -274,8 +345,9 @@ class OpenAICompatProvider(Provider):
 
     def create(self, system, messages, tools):
         body: dict[str, Any] = {
-            "model": self.config.model,
-            "messages": [{"role": "system", "content": system}] + to_openai(messages),
+            "model": self.model,
+            "messages": [{"role": "system", "content": system}]
+            + to_openai(messages, _mistral_id if self.name == "mistral" else None),
             "max_tokens": self.config.max_tokens,
         }
         fns = [t for t in (self._tool(s) for s in tools) if t]
@@ -286,6 +358,8 @@ class OpenAICompatProvider(Provider):
             "Authorization": f"Bearer {self.api_key}",
             "User-Agent": "JARVIS-assistant/0.1",
         }
+        if self.name == "openrouter":
+            headers["X-Title"] = "JARVIS"
         try:
             data = self._send(headers, body)
         except ProviderError as exc:
@@ -379,7 +453,49 @@ class OpenAICompatProvider(Provider):
         stop = _STOP.get(choice.get("finish_reason") or "stop", "end_turn")
         if any(b.type == "tool_use" for b in blocks) and stop == "end_turn":
             stop = "tool_use"  # some servers say "stop" even with tool calls
-        return Response(content=blocks, stop_reason=stop, model=data.get("model", self.config.model))
+        return Response(content=blocks, stop_reason=stop, model=data.get("model", self.model), provider=self.name)
+
+
+class FallbackProvider(Provider):
+    """Tries the main provider, then the backups, skipping any that just failed.
+
+    A provider that hits its rate limit (or errors) is skipped for
+    ``COOLDOWN`` seconds, so the next request goes straight to one that works.
+    """
+
+    def __init__(self, providers: list[OpenAICompatProvider], clock: Callable[[], float] = time.monotonic):
+        self.providers = providers
+        self.name = providers[0].name
+        self.clock = clock
+        self._resting: dict[str, float] = {}
+        # Called with (from_name, to_name, error) when JARVIS switches.
+        self.on_switch: Callable[[str, str, ProviderError], None] | None = None
+
+    @property
+    def model(self) -> str:
+        return self.providers[0].model
+
+    def create(self, system, messages, tools):
+        now = self.clock()
+        ready = [p for p in self.providers if self._resting.get(p.name, 0) <= now]
+        order = ready or self.providers  # all resting: try them all anyway
+        first_error: ProviderError | None = None
+        for i, provider in enumerate(order):
+            try:
+                response = provider.create(system, messages, tools)
+            except ProviderError as exc:
+                first_error = first_error or exc
+                self._resting[provider.name] = self.clock() + COOLDOWN
+                if i + 1 < len(order):
+                    nxt = order[i + 1].name
+                    log.warning("%s failed (%s); switching to %s", provider.name, exc.message, nxt)
+                    if self.on_switch:
+                        self.on_switch(provider.name, nxt, exc)
+                continue
+            self._resting.pop(provider.name, None)
+            return response
+        assert first_error is not None
+        raise first_error
 
 
 def _plain_text(content: Any) -> str:
@@ -392,11 +508,22 @@ def _plain_text(content: Any) -> str:
     return json.dumps(content, ensure_ascii=False, default=str)
 
 
-def to_openai(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _mistral_id(id_: str) -> str:
+    """Mistral only accepts tool-call ids of exactly 9 letters/digits."""
+    if re.fullmatch(r"[A-Za-z0-9]{9}", id_ or ""):
+        return id_
+    return hashlib.sha1((id_ or "").encode()).hexdigest()[:9]
+
+
+def to_openai(
+    messages: list[dict[str, Any]], id_fn: Callable[[str], str] | None = None
+) -> list[dict[str, Any]]:
     """Translate the stored (Claude-format) history to OpenAI chat messages.
 
     Claude-only blocks (thinking, Anthropic's web search results) are left out.
+    ``id_fn`` rewrites tool-call ids for providers with strict id rules.
     """
+    fix = id_fn or (lambda i: i)
     out: list[dict[str, Any]] = []
     for m in messages:
         role, content = m.get("role"), m.get("content")
@@ -411,7 +538,7 @@ def to_openai(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             for b in content:
                 if isinstance(b, dict) and b.get("type") == "tool_use":
                     call = {
-                        "id": b["id"],
+                        "id": fix(b["id"]),
                         "type": "function",
                         "function": {"name": b["name"],
                                      "arguments": json.dumps(b.get("input") or {}, ensure_ascii=False)},
@@ -433,7 +560,7 @@ def to_openai(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     result = _plain_text(b.get("content", ""))
                     if b.get("is_error"):
                         result = f"Error: {result}"
-                    out.append({"role": "tool", "tool_call_id": b["tool_use_id"],
+                    out.append({"role": "tool", "tool_call_id": fix(b["tool_use_id"]),
                                 "content": result or "(no output)"})
                 elif b.get("type") == "text":
                     texts.append(b.get("text", ""))
