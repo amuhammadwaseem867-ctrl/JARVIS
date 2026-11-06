@@ -16,6 +16,16 @@ def show_tool(call: ToolCall) -> None:
     print(f"  {mark} {call.name}({call.input}) -> {call.result[:120]}")
 
 
+def confirm_typed(question: str) -> bool:
+    """Ask a yes/no question in the terminal before a risky action."""
+    try:
+        answer = input(f"  ? {question} [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return answer in ("y", "yes")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="jarvis", description="Talk to JARVIS.")
     mode = p.add_mutually_exclusive_group()
@@ -57,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
 def _voice_brain() -> Brain:
     from .voice.session import VOICE_PROMPT
 
-    brain = Brain(on_tool_call=show_tool)
+    brain = Brain(on_tool_call=show_tool, confirm=confirm_typed)
     brain.config.system_prompt += VOICE_PROMPT
     return brain
 
@@ -71,7 +81,7 @@ def run_text(speak: bool = False) -> int:
         mouth = Mouth(VoiceConfig.from_env())
         brain = _voice_brain()
     else:
-        brain = Brain(on_tool_call=show_tool)
+        brain = Brain(on_tool_call=show_tool, confirm=confirm_typed)
     print(f"JARVIS online ({brain.config.model}). {HELP}")
 
     while True:
@@ -109,8 +119,10 @@ def run_voice(push_to_talk: bool = False) -> int:
     mouth = Mouth(config)
     ears = Ears(config, on_status=print)
     print(f"JARVIS online ({brain.config.model}), voice mode.")
+    session = VoiceSession(brain, ears, mouth, config, push_to_talk=push_to_talk)
+    brain.tools.confirm = session.confirm  # ask out loud before risky actions
     try:
-        VoiceSession(brain, ears, mouth, config, push_to_talk=push_to_talk).run()
+        session.run()
     except (KeyboardInterrupt, EOFError):
         print()
     finally:

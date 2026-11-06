@@ -32,6 +32,14 @@ _GOODBYES = re.compile(
 )
 
 
+_YES = re.compile(
+    r"^(?:yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|confirm|affirmative|"
+    r"correct|of course|absolutely)\b",
+    re.I,
+)
+_NO = re.compile(r"\b(?:no|nope|not|don't|do not|cancel|stop|wait|never)\b", re.I)
+
+
 class Ears(Protocol):
     def listen(self, timeout: float | None = None) -> str | None: ...
     def flush(self) -> None: ...
@@ -65,6 +73,15 @@ class VoiceSession:
         self.show(f"jarvis > {text}")
         self.mouth.say(text)
         self.ears.flush()  # don't let JARVIS hear itself
+
+    def confirm(self, question: str) -> bool:
+        """Ask a yes/no question out loud. Only a clear yes counts."""
+        self.speak(f"{question} Say yes or no.")
+        heard = self.ears.listen(timeout=8)
+        if heard:
+            self.show(f"you    > {heard}")
+        answer = self.wake.strip(heard or "").strip()
+        return bool(_YES.match(answer)) and not _NO.search(answer)
 
     def handle(self, request: str) -> bool:
         """Answer one request. Returns False when the user said goodbye."""

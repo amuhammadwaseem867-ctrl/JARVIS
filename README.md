@@ -93,6 +93,48 @@ On Linux, install the audio system packages first:
 | `JARVIS_SILENCE_SECONDS` | `0.8` | How long a pause ends your sentence |
 | `JARVIS_ENERGY_THRESHOLD` | auto | How loud counts as speech (0 to 1). Raise it if background noise wakes it |
 
+## Skills
+
+Out of the box JARVIS can do more than talk:
+
+| Skill | Try saying | How it works |
+|---|---|---|
+| Web search | "What happened in the cricket today?" | Claude's own web search and page reader, run by Anthropic. No extra key; searches are billed on your Anthropic account |
+| Weather | "Do I need an umbrella tomorrow?" | [Open-Meteo](https://open-meteo.com), free, no key |
+| Websites | "Open YouTube and search for lofi music" | Your default browser |
+| Apps | "Open Spotify", "open the calculator" | The normal way your OS launches programs |
+| System | "How much battery do I have?", "volume to 30" | AppleScript on Mac, `pactl`/`amixer` on Linux, the volume keys on Windows |
+| Files | "What's in my Downloads?", "find my invoice PDFs", "save this as notes.txt" | Only inside your home folder (or `JARVIS_FILES_ROOT`) |
+
+```
+you > delete old-notes.txt from my Documents
+  ? Delete Documents/old-notes.txt to the Recycle Bin? [y/N] y
+  · delete_file({'path': 'Documents/old-notes.txt'}) -> Deleted Documents/old-notes.txt (it's in the Recycle Bin).
+jarvis > Done, it's in the Recycle Bin if you change your mind.
+```
+
+**Safety.** Anything that's hard to undo asks you first, in the terminal or out
+loud in voice mode: overwriting, moving or deleting a file, and opening a
+program that isn't on the trusted list (common ones like Chrome, Spotify and
+the calculator are). Only a clear "yes" goes ahead. File tools can't reach
+outside your files folder, apps open by name only (no paths or arguments), and
+websites must be `http`/`https`. When JARVIS is used from code with no way to
+ask, risky actions are simply declined.
+
+For battery and memory info and deleting to the Recycle Bin instead of
+permanently, install the extras: `pip install -e ".[skills]"`.
+
+### Skill settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `JARVIS_SKILLS` | `web,weather,apps,system,files` | Which skills are on. `none` turns them all off |
+| `JARVIS_HOME_LOCATION` | | Your city, used when you ask for the weather without saying where |
+| `JARVIS_UNITS` | `metric` | `imperial` for °F and mph |
+| `JARVIS_TRUSTED_APPS` | | Extra apps that open without asking, comma separated |
+| `JARVIS_FILES_ROOT` | your home folder | The only folder the file tools can touch |
+| `JARVIS_MAX_WEB_SEARCHES` | `5` | Most web searches per request |
+
 ## Using the brain from code
 
 ```python
@@ -124,6 +166,10 @@ def set_light(room: str, on: bool) -> str:
 Return a string or any JSON-able value. Raise an exception to report a
 failure; Claude sees the error and can explain it or try something else.
 
+For anything risky, call `brain.tools.ask_user("Unlock the front door?")`
+inside the tool: it asks the user and stops the tool unless they say yes.
+Pass `Brain(confirm=my_yes_no_function)` to choose how the question is asked.
+
 ## How it works
 
 ```
@@ -143,6 +189,7 @@ failure; Claude sees the error and can explain it or try something else.
 | `jarvis/brain.py` | The agent loop: calls Claude, runs tools, handles refusals and errors |
 | `jarvis/memory.py` | Short-term memory (conversation history) and long-term memory (facts) |
 | `jarvis/tools.py` | Tool registry plus built-ins: time, calculator, remember / recall / forget |
+| `jarvis/skills/` | Real-world skills: `web.py`, `weather.py`, `apps.py`, `system.py`, `files.py` |
 | `jarvis/config.py` | Settings and JARVIS's personality (system prompt) |
 | `jarvis/chat.py` | Asks the brain and turns API errors into something JARVIS can say |
 | `jarvis/voice/` | Voice mode: `ears.py` (mic + Whisper), `mouth.py` (TTS), `wake.py` (wake word), `session.py` (the listen, think, speak loop) |
@@ -171,4 +218,6 @@ pytest
 ```
 
 The tests use a fake Claude client and fake ears and mouth, so they run without
-an API key, a microphone or the voice packages.
+an API key, a microphone or the voice packages. Skill tests swap out the
+network, app launching and volume calls, so running them changes nothing on
+your computer.

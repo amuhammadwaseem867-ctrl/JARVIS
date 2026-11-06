@@ -16,6 +16,11 @@ Register a new skill anywhere in the app with the ``@registry.tool`` decorator::
 The function's return value (any JSON-able value or string) is sent back to
 Claude as the tool result. Raise an exception to report a failure; Claude sees
 the error message and can explain it or try something else.
+
+For risky actions, call ``registry.ask_user("Delete report.txt?")`` inside the
+tool. It asks the person through whatever front end is running (terminal or
+voice) and raises ``Declined`` unless they say yes. With no front end attached
+the answer is always no, so nothing risky ever happens unattended.
 """
 
 from __future__ import annotations
@@ -30,6 +35,13 @@ from typing import Any, Callable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .memory import FactStore
+
+
+class Declined(Exception):
+    """The user said no (or could not be asked) to a risky action."""
+
+
+Confirmer = Callable[[str], bool]
 
 
 @dataclass
@@ -55,8 +67,22 @@ class Tool:
 
 
 class ToolRegistry:
-    def __init__(self) -> None:
+    def __init__(self, confirm: Confirmer | None = None) -> None:
         self._tools: dict[str, Tool] = {}
+        # Anthropic-hosted tools (web search, web fetch). Claude runs these
+        # itself; we only declare them.
+        self.server_tools: list[dict[str, Any]] = []
+        # Asks the user a yes/no question. Set by the front end.
+        self.confirm = confirm
+
+    def ask_user(self, question: str) -> None:
+        """Ask the user to approve a risky action. Raises ``Declined`` on no."""
+        if self.confirm is None:
+            raise Declined(
+                "This needs the user's confirmation, but there's no way to ask them here."
+            )
+        if not self.confirm(question):
+            raise Declined("The user declined.")
 
     def tool(
         self,
@@ -84,15 +110,20 @@ class ToolRegistry:
 
         return decorator
 
+    def add_server_tool(self, spec: dict[str, Any]) -> None:
+        if spec["name"] in self._tools or any(t["name"] == spec["name"] for t in self.server_tools):
+            raise ValueError(f"tool name '{spec['name']}' is already taken")
+        self.server_tools.append(spec)
+
     def __contains__(self, name: str) -> bool:
         return name in self._tools
 
     def names(self) -> list[str]:
-        return list(self._tools)
+        return list(self._tools) + [t["name"] for t in self.server_tools]
 
     def schemas(self) -> list[dict[str, Any]]:
         # Sorted so the tool list is byte-identical every request (cache-friendly).
-        return [self._tools[n].schema() for n in sorted(self._tools)]
+        return [self._tools[n].schema() for n in sorted(self._tools)] + self.server_tools
 
     def run(self, name: str, args: dict[str, Any]) -> tuple[str, bool]:
         """Run a tool. Returns ``(result_text, is_error)``."""
@@ -106,6 +137,8 @@ class ToolRegistry:
             return f"Missing required argument(s): {', '.join(missing)}", True
         try:
             result = tool.func(**args)
+        except Declined as exc:
+            return f"Not done: {exc}", True
         except Exception as exc:  # report any tool failure back to Claude
             return f"{type(exc).__name__}: {exc}", True
         if isinstance(result, str):

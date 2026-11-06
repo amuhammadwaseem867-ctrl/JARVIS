@@ -23,7 +23,8 @@ import anthropic
 
 from .config import BrainConfig
 from .memory import ConversationMemory, FactStore
-from .tools import ToolRegistry, register_builtin_tools
+from .skills import SkillsConfig, register_skills
+from .tools import Confirmer, ToolRegistry, register_builtin_tools
 
 log = logging.getLogger("jarvis.brain")
 
@@ -58,6 +59,8 @@ class Brain:
         client: Any | None = None,
         persist: bool = True,
         on_tool_call: Callable[[ToolCall], None] | None = None,
+        skills: SkillsConfig | None = None,
+        confirm: Confirmer | None = None,
     ):
         """
         Args:
@@ -66,6 +69,12 @@ class Brain:
             persist: save conversation and facts under ``config.data_dir``.
             on_tool_call: optional callback fired after each tool runs, so a
                 UI or voice layer can show "checking the time..." etc.
+            skills: which real-world skills to load; defaults to
+                ``SkillsConfig.from_env()`` (all of them unless ``JARVIS_SKILLS``
+                says otherwise).
+            confirm: asks the user a yes/no question before a risky action.
+                Without one, risky actions are always declined. Can also be
+                set later as ``brain.tools.confirm``.
         """
         self.config = config or BrainConfig.from_env()
         self.client = client or anthropic.Anthropic()
@@ -73,8 +82,9 @@ class Brain:
 
         self.memory = ConversationMemory(self.config.conversation_path if persist else None)
         self.facts = FactStore(self.config.facts_path if persist else None)
-        self.tools = ToolRegistry()
+        self.tools = ToolRegistry(confirm=confirm)
         register_builtin_tools(self.tools, self.facts)
+        register_skills(self.tools, skills or SkillsConfig.from_env())
 
     # ------------------------------------------------------------------ API
 
@@ -100,6 +110,13 @@ class Brain:
                     )
 
                 self.memory.add_assistant(response.content)
+                for block in response.content:
+                    if block.type == "server_tool_use":
+                        # Web search / fetch: Anthropic already ran it.
+                        call = ToolCall(block.name, block.input, "(run by Anthropic)", False)
+                        tool_calls.append(call)
+                        if self.on_tool_call:
+                            self.on_tool_call(call)
                 tool_uses = [b for b in response.content if b.type == "tool_use"]
 
                 if response.stop_reason == "pause_turn":
