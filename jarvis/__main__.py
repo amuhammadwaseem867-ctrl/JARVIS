@@ -64,7 +64,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--provider",
         choices=PROVIDERS,
         help="which AI to use (default: JARVIS_PROVIDER, else the first API key found: "
-        "GROQ_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY)",
+        "GROQ, CEREBRAS, GEMINI, OPENROUTER, MISTRAL, then ANTHROPIC)",
     )
     p.add_argument("--model", help="model name for the chosen provider (default: its usual one)")
     p.add_argument("--list-voices", action="store_true", help="list text-to-speech voices and exit")
@@ -105,7 +105,9 @@ def main(argv: list[str] | None = None) -> int:
 
 def _label(brain: Brain) -> str:
     provider = getattr(brain.config, "provider", "")
-    return f"{provider}: {brain.config.model}" if provider else brain.config.model
+    label = f"{provider}: {brain.config.model}" if provider else brain.config.model
+    backups = [p.name for p in getattr(getattr(brain, "provider", None), "providers", [])[1:]]
+    return f"{label}; backup: {', '.join(backups)}" if backups else label
 
 
 def _voice_brain() -> Brain:

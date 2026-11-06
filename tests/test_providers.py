@@ -18,7 +18,8 @@ from jarvis.skills import SkillsConfig
 from jarvis.skills.web import _check_public, html_to_text, parse_results
 
 KEYS = ("GROQ_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY",
-        "JARVIS_PROVIDER", "JARVIS_MODEL")
+        "CEREBRAS_API_KEY", "OPENROUTER_API_KEY", "MISTRAL_API_KEY",
+        "JARVIS_PROVIDER", "JARVIS_MODEL", "JARVIS_FALLBACK", "JARVIS_GROQ_MODEL")
 
 
 @pytest.fixture(autouse=True)
@@ -276,3 +277,86 @@ def test_html_to_text():
 def test_fetch_refuses_local_addresses(url):
     with pytest.raises(ValueError):
         _check_public(url)
+
+
+# ------------------------------------------------- more providers, fallback
+
+def test_new_providers_are_detected_in_order(monkeypatch):
+    monkeypatch.setenv("MISTRAL_API_KEY", "m")
+    assert providers.detect_provider() == "mistral"
+    monkeypatch.setenv("OPENROUTER_API_KEY", "o")
+    assert providers.detect_provider() == "openrouter"
+    monkeypatch.setenv("CEREBRAS_API_KEY", "c")
+    assert providers.detect_provider() == "cerebras"
+
+
+@pytest.mark.parametrize("name,url", [
+    ("cerebras", "https://api.cerebras.ai/v1/chat/completions"),
+    ("openrouter", "https://openrouter.ai/api/v1/chat/completions"),
+    ("mistral", "https://api.mistral.ai/v1/chat/completions"),
+])
+def test_new_providers_talk_openai_format(tmp_path, monkeypatch, name, url):
+    brain, fake = make_brain(tmp_path, monkeypatch, chat_reply("Hi."), provider=name, skills=())
+    assert brain.think("hello").text == "Hi."
+    req = fake.requests[0]
+    assert req["url"] == url
+    assert req["body"]["model"] == providers.DEFAULT_MODELS[name]
+
+
+def test_mistral_gets_nine_character_ids():
+    out = providers.to_openai(CLAUDE_HISTORY, providers._mistral_id)
+    new_id = out[3]["tool_calls"][0]["id"]
+    assert len(new_id) == 9 and new_id.isalnum()
+    assert out[4]["tool_call_id"] == new_id
+    assert providers._mistral_id("abcDEF123") == "abcDEF123"
+
+
+def test_fallback_list(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "q")
+    assert providers.fallback_names("groq") == []
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("CEREBRAS_API_KEY", "c")
+    assert providers.fallback_names("groq") == ["cerebras", "gemini"]
+    assert providers.fallback_names("claude") == []
+    monkeypatch.setenv("JARVIS_FALLBACK", "gemini,mistral")  # no Mistral key: skipped
+    assert providers.fallback_names("groq") == ["gemini"]
+    monkeypatch.setenv("JARVIS_FALLBACK", "none")
+    assert providers.fallback_names("groq") == []
+    monkeypatch.setenv("JARVIS_FALLBACK", "teleport")
+    with pytest.raises(providers.SetupError):
+        providers.fallback_names("groq")
+
+
+def test_switches_provider_on_rate_limit(tmp_path, monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "q")
+    monkeypatch.setenv("CEREBRAS_API_KEY", "c")
+    monkeypatch.setenv("JARVIS_GROQ_MODEL", "openai/gpt-oss-120b")
+    brain = Brain(config=BrainConfig(provider="groq", data_dir=tmp_path), skills=SkillsConfig(enabled=()))
+    fb = brain.provider
+    assert [p.name for p in fb.providers] == ["groq", "cerebras"]
+    groq, cerebras = fb.providers
+    assert groq.model == "llama-3.3-70b-versatile"  # config.model wins for the main one
+    now = [0.0]
+    fb.clock = lambda: now[0]
+    switches = []
+    fb.on_switch = lambda a, b, e: switches.append((a, b))
+    groq.post = FakePost(http_error(429, {"error": {"message": "limit"}}), chat_reply("Groq again."))
+    cerebras.post = FakePost(chat_reply("From Cerebras."), chat_reply("Still Cerebras."))
+
+    assert brain.think("one").text == "From Cerebras."
+    assert switches == [("groq", "cerebras")]
+    now[0] = 30  # Groq is still resting: goes straight to Cerebras
+    assert brain.think("two").text == "Still Cerebras."
+    assert len(groq.post.requests) == 1
+    now[0] = 61  # rested: back to Groq
+    assert brain.think("three").text == "Groq again."
+
+
+def test_all_providers_failing_reports_the_first_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "q")
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    brain = Brain(config=BrainConfig(provider="groq", data_dir=tmp_path), skills=SkillsConfig(enabled=()))
+    groq, gemini = brain.provider.providers
+    groq.post = FakePost(http_error(429, {"error": {"message": "limit"}}))
+    gemini.post = FakePost(http_error(503, {"error": {"message": "busy"}}))
+    assert "rate limit" in ask(brain, "hi")
