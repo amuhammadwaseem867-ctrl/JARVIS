@@ -1,22 +1,77 @@
-"""Talk to JARVIS in the terminal: ``python -m jarvis``."""
+"""Talk to JARVIS: ``python -m jarvis`` (text) or ``python -m jarvis --voice``."""
 
 from __future__ import annotations
 
+import argparse
 import sys
 
-import anthropic
-
 from .brain import Brain, ToolCall
+from .chat import FatalError, ask
 
 HELP = "Commands: /reset (new conversation), /facts (show memory), /quit"
 
 
-def main() -> int:
-    def show_tool(call: ToolCall) -> None:
-        mark = "!" if call.is_error else "·"
-        print(f"  {mark} {call.name}({call.input}) -> {call.result[:120]}")
+def show_tool(call: ToolCall) -> None:
+    mark = "!" if call.is_error else "·"
+    print(f"  {mark} {call.name}({call.input}) -> {call.result[:120]}")
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(prog="jarvis", description="Talk to JARVIS.")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--voice", action="store_true", help="voice mode: say 'Jarvis' and talk, it talks back"
+    )
+    mode.add_argument(
+        "--speak", action="store_true", help="type as usual, but JARVIS reads its replies aloud"
+    )
+    p.add_argument(
+        "--push-to-talk",
+        action="store_true",
+        help="with --voice: press Enter before speaking instead of using the wake word",
+    )
+    p.add_argument("--list-voices", action="store_true", help="list text-to-speech voices and exit")
+    return p.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    try:
+        if args.list_voices:
+            from .voice.config import VoiceConfig
+            from .voice.mouth import Mouth
+
+            print("\n".join(Mouth(VoiceConfig.from_env()).voices()))
+            return 0
+        if args.voice:
+            return run_voice(push_to_talk=args.push_to_talk)
+        return run_text(speak=args.speak)
+    except FatalError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    except RuntimeError as exc:  # missing voice packages, no microphone, ...
+        print(exc, file=sys.stderr)
+        return 1
+
+
+def _voice_brain() -> Brain:
+    from .voice.session import VOICE_PROMPT
 
     brain = Brain(on_tool_call=show_tool)
+    brain.config.system_prompt += VOICE_PROMPT
+    return brain
+
+
+def run_text(speak: bool = False) -> int:
+    mouth = None
+    if speak:
+        from .voice.config import VoiceConfig
+        from .voice.mouth import Mouth
+
+        mouth = Mouth(VoiceConfig.from_env())
+        brain = _voice_brain()
+    else:
+        brain = Brain(on_tool_call=show_tool)
     print(f"JARVIS online ({brain.config.model}). {HELP}")
 
     while True:
@@ -37,21 +92,30 @@ def main() -> int:
             print(brain.facts.search("") or "No facts saved yet.")
             continue
 
-        try:
-            reply = brain.think(text)
-        except anthropic.AuthenticationError:
-            print("No valid API key. Set ANTHROPIC_API_KEY and try again.", file=sys.stderr)
-            return 1
-        except anthropic.RateLimitError:
-            print("jarvis > I'm being rate limited. Give me a moment and try again.")
-            continue
-        except anthropic.APIConnectionError:
-            print("jarvis > I can't reach the network right now.")
-            continue
-        except anthropic.APIStatusError as exc:
-            print(f"jarvis > The API returned an error ({exc.status_code}): {exc.message}")
-            continue
-        print(f"jarvis > {reply.text}")
+        answer = ask(brain, text)
+        print(f"jarvis > {answer}")
+        if mouth:
+            mouth.say(answer)
+
+
+def run_voice(push_to_talk: bool = False) -> int:
+    from .voice.config import VoiceConfig
+    from .voice.ears import Ears
+    from .voice.mouth import Mouth
+    from .voice.session import VoiceSession
+
+    config = VoiceConfig.from_env()
+    brain = _voice_brain()
+    mouth = Mouth(config)
+    ears = Ears(config, on_status=print)
+    print(f"JARVIS online ({brain.config.model}), voice mode.")
+    try:
+        VoiceSession(brain, ears, mouth, config, push_to_talk=push_to_talk).run()
+    except (KeyboardInterrupt, EOFError):
+        print()
+    finally:
+        ears.close()
+    return 0
 
 
 if __name__ == "__main__":
