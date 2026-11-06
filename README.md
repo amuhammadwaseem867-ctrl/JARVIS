@@ -27,6 +27,72 @@ jarvis > Noted, I'll remember your gym days.
 Terminal commands: `/reset` starts a new conversation, `/facts` shows long-term
 memory, `/quit` exits.
 
+## Voice mode
+
+Voice is optional. Text chat works without any of this.
+
+```bash
+pip install -e ".[voice]"
+python -m jarvis --voice            # say "Jarvis, ..." and it answers out loud
+```
+
+```
+Loading speech model 'base.en'...
+Calibrating microphone, stay quiet for a second...
+JARVIS online (claude-opus-5-5), voice mode.
+Say 'Jarvis' followed by your request. Say 'goodbye' or press Ctrl+C to stop.
+you    > what time is it in Karachi?
+  · get_current_time({'timezone': 'Asia/Karachi'}) -> Friday 06 November 2026, 20:14:05 PKT (UTC+0500)
+jarvis > It's 8:14 in the evening in Karachi.
+you    > and in London?                    <- follow-up, no wake word needed
+jarvis > It's 3:14 in the afternoon in London.
+```
+
+How it talks to you:
+
+- **Wake word.** Say "Jarvis" with your request ("Hey Jarvis, what's 15% of
+  80?" or "What's the date, Jarvis?"). Say just "Jarvis" and it answers
+  "Yes?" and waits for the request. Anything said without the wake word is ignored.
+- **Follow-ups.** After it answers, you have 6 seconds to ask a follow-up
+  without saying "Jarvis" again. Then it goes back to waiting for the wake word.
+- **Stop.** Say "goodbye" (or "stop listening"), or press Ctrl+C.
+
+Other modes:
+
+| Command | What it does |
+|---|---|
+| `python -m jarvis --voice --push-to-talk` | No wake word: press Enter, then speak. Good in a noisy room |
+| `python -m jarvis --speak` | Type as usual; JARVIS reads its replies aloud. No microphone needed |
+| `python -m jarvis --list-voices` | Lists the voices you can pick with `JARVIS_VOICE` |
+
+Under the hood, everything runs on your computer except Claude itself:
+
+- **Ears:** [faster-whisper](https://github.com/SYSTRAN/faster-whisper) turns
+  speech into text offline. The first run downloads the model (about 150 MB for
+  `base.en`). Loudness detection decides when you've finished a sentence.
+- **Mouth:** [pyttsx3](https://github.com/nateshmbhat/pyttsx3) speaks with the
+  voices built into your OS (Windows SAPI5, macOS, or espeak on Linux). Markdown,
+  code and links are cleaned out before speaking, and in voice mode Claude is
+  told its answers will be spoken, so it keeps them short and plain.
+
+On Linux, install the audio system packages first:
+`sudo apt install libportaudio2 espeak-ng`.
+
+### Voice settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `JARVIS_WAKE_WORD` | `jarvis` | The word that wakes it up |
+| `JARVIS_FOLLOW_UP_SECONDS` | `6` | How long it waits for a follow-up without the wake word. `0` turns this off |
+| `JARVIS_WHISPER_MODEL` | `base.en` | `tiny.en` is faster, `small.en` or `medium.en` hear better |
+| `JARVIS_WHISPER_DEVICE` | `auto` | `cpu`, `cuda`, or `auto` |
+| `JARVIS_LANGUAGE` | `en` | Language you speak (use a non-`.en` model for other languages) |
+| `JARVIS_VOICE` | | Part of a voice name, e.g. `David`, `Daniel`, `Zira` (see `--list-voices`) |
+| `JARVIS_VOICE_RATE` | `185` | Speaking speed in words per minute |
+| `JARVIS_MIC` | system default | Microphone index or name |
+| `JARVIS_SILENCE_SECONDS` | `0.8` | How long a pause ends your sentence |
+| `JARVIS_ENERGY_THRESHOLD` | auto | How loud counts as speech (0 to 1). Raise it if background noise wakes it |
+
 ## Using the brain from code
 
 ```python
@@ -78,7 +144,9 @@ failure; Claude sees the error and can explain it or try something else.
 | `jarvis/memory.py` | Short-term memory (conversation history) and long-term memory (facts) |
 | `jarvis/tools.py` | Tool registry plus built-ins: time, calculator, remember / recall / forget |
 | `jarvis/config.py` | Settings and JARVIS's personality (system prompt) |
-| `jarvis/__main__.py` | Terminal chat |
+| `jarvis/chat.py` | Asks the brain and turns API errors into something JARVIS can say |
+| `jarvis/voice/` | Voice mode: `ears.py` (mic + Whisper), `mouth.py` (TTS), `wake.py` (wake word), `session.py` (the listen, think, speak loop) |
+| `jarvis/__main__.py` | Command line: text chat, `--voice`, `--speak` |
 
 Memory lives in `~/.jarvis/` (`conversation.json` and `facts.json`), so JARVIS
 picks up where it left off after a restart.
@@ -102,4 +170,5 @@ picks up where it left off after a restart.
 pytest
 ```
 
-The tests use a fake Claude client, so they run without an API key.
+The tests use a fake Claude client and fake ears and mouth, so they run without
+an API key, a microphone or the voice packages.

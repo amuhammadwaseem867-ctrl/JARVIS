@@ -12,12 +12,18 @@ dependencies = ["anthropic>=2.6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+voice = [
+    "faster-whisper>=1.1",
+    "sounddevice>=0.5",
+    "numpy>=1.26",
+    "pyttsx3>=2.98",
+]
 
 [project.scripts]
 jarvis = "jarvis.__main__:main"
 
 [tool.setuptools]
-packages = ["jarvis"]
+packages = ["jarvis", "jarvis.voice"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
