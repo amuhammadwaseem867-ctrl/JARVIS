@@ -1,4 +1,4 @@
-"""Talk to JARVIS: ``python -m jarvis`` (text) or ``python -m jarvis --voice``."""
+"""Talk to JARVIS: ``python -m jarvis`` (text), ``--voice``, or ``--hud`` (web HUD)."""
 
 from __future__ import annotations
 
@@ -35,10 +35,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     mode.add_argument(
         "--speak", action="store_true", help="type as usual, but JARVIS reads its replies aloud"
     )
+    mode.add_argument(
+        "--hud", action="store_true", help="open the HUD: a local web interface in your browser"
+    )
     p.add_argument(
         "--push-to-talk",
         action="store_true",
         help="with --voice: press Enter before speaking instead of using the wake word",
+    )
+    p.add_argument("--port", type=int, default=8765, help="with --hud: port to serve on")
+    p.add_argument(
+        "--no-browser", action="store_true", help="with --hud: don't open a browser tab"
     )
     p.add_argument("--list-voices", action="store_true", help="list text-to-speech voices and exit")
     return p.parse_args(argv)
@@ -55,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.voice:
             return run_voice(push_to_talk=args.push_to_talk)
+        if args.hud:
+            return run_hud(port=args.port, open_browser=not args.no_browser)
         return run_text(speak=args.speak)
     except FatalError as exc:
         print(exc, file=sys.stderr)
@@ -128,6 +137,17 @@ def run_voice(push_to_talk: bool = False) -> int:
     finally:
         ears.close()
     return 0
+
+
+def run_hud(port: int = 8765, open_browser: bool = True) -> int:
+    from .hud import HudApp, serve
+    from .hud.voice import load_voice
+
+    voice = load_voice()
+    if voice["voice_error"]:
+        print(voice["voice_error"])
+    app = HudApp(Brain(), **voice)
+    return serve(app, port=port, open_browser=open_browser)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,10 @@ voice = [
 jarvis = "jarvis.__main__:main"
 
 [tool.setuptools]
-packages = ["jarvis", "jarvis.voice", "jarvis.skills"]
+packages = ["jarvis", "jarvis.voice", "jarvis.skills", "jarvis.hud"]
+
+[tool.setuptools.package-data]
+"jarvis.hud" = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

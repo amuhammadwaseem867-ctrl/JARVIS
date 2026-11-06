@@ -2,7 +2,7 @@
 
 A personal AI assistant powered by Claude.
 
-This repo currently holds JARVIS's **brain**: the reasoning layer that every
+This repo holds JARVIS's **brain**: the reasoning layer that every
 other part (voice, UI, smart-home hooks) talks to. You give it text, it thinks
 with Claude, runs any tools it needs, remembers things, and gives text back.
 
@@ -92,6 +92,43 @@ On Linux, install the audio system packages first:
 | `JARVIS_MIC` | system default | Microphone index or name |
 | `JARVIS_SILENCE_SECONDS` | `0.8` | How long a pause ends your sentence |
 | `JARVIS_ENERGY_THRESHOLD` | auto | How loud counts as speech (0 to 1). Raise it if background noise wakes it |
+
+## HUD (visual interface)
+
+```bash
+python -m jarvis --hud              # opens http://127.0.0.1:8765 in your browser
+```
+
+An Iron-Man-style screen for JARVIS that runs on your own computer:
+
+- **Comms** on the left: the conversation, with formatting, picking up where
+  you left off (it reads the same `~/.jarvis` memory as the terminal).
+- **The core** in the middle shows what JARVIS is doing: standing by,
+  listening (amber), thinking (spinning fast) or speaking (pulsing).
+- **Systems** on the right: every tool JARVIS runs, live, with its input and
+  result (web searches, weather, apps, files...). Click a long result to expand it.
+- **Type** in the bar at the bottom, or press the **mic** (or Ctrl+Space) and
+  speak. Saying "Jarvis" first is optional here.
+- **Speak replies** reads answers out loud.
+- Risky actions (overwriting or deleting a file, opening an untrusted app)
+  pop up an **Authorization required** card. Nothing happens unless you press
+  Yes; no answer in two minutes counts as no.
+
+The mic and spoken replies use the same local Whisper and text-to-speech as
+voice mode, so they need `pip install -e ".[voice]"`. Without it the HUD still
+works for typing, and tells you what's missing. The HUD itself needs no extra
+packages.
+
+| Option | What it does |
+|---|---|
+| `--port 9000` | Serve on another port |
+| `--no-browser` | Don't open a browser tab (go to the printed address yourself) |
+
+**Privacy.** The server only listens on 127.0.0.1, so nothing else on your
+network can reach it. Every request needs a secret token that is created each
+time you start the HUD, and requests that don't come from this computer's own
+address are refused, so other websites open in your browser can't send JARVIS
+commands. Terminal and voice mode are unchanged.
 
 ## Skills
 
@@ -193,7 +230,8 @@ Pass `Brain(confirm=my_yes_no_function)` to choose how the question is asked.
 | `jarvis/config.py` | Settings and JARVIS's personality (system prompt) |
 | `jarvis/chat.py` | Asks the brain and turns API errors into something JARVIS can say |
 | `jarvis/voice/` | Voice mode: `ears.py` (mic + Whisper), `mouth.py` (TTS), `wake.py` (wake word), `session.py` (the listen, think, speak loop) |
-| `jarvis/__main__.py` | Command line: text chat, `--voice`, `--speak` |
+| `jarvis/hud/` | The HUD: `app.py` (runs requests, publishes live events), `server.py` (local web server), `voice.py` (hooks up the mic and TTS), `static/` (the page) |
+| `jarvis/__main__.py` | Command line: text chat, `--voice`, `--speak`, `--hud` |
 
 Memory lives in `~/.jarvis/` (`conversation.json` and `facts.json`), so JARVIS
 picks up where it left off after a restart.
