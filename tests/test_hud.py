@@ -273,6 +273,17 @@ def test_page_has_token_and_static_files(server):
     assert request(server, "GET", "/static/app.py")[0] == 404
 
 
+def test_serves_the_3d_robot(server):
+    page = request(server, "GET", "/")[1]
+    assert b'id="robot"' in page and b'src="/static/robot.js"' in page
+    status, robot = request(server, "GET", "/static/robot.js")
+    assert status == 200
+    # robot.js loads three.js from the HUD itself, not from the internet
+    assert b'from "./three.module.min.js"' in robot
+    status, three = request(server, "GET", "/static/three.module.min.js")
+    assert status == 200 and b"SPDX-License-Identifier: MIT" in three[:300]
+
+
 def test_rejects_other_hosts_and_missing_token(server):
     # DNS-rebinding style request: right IP, foreign Host header.
     assert request(server, "GET", "/", host="evil.example:8765")[0] == 403

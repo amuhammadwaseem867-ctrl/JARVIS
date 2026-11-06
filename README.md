@@ -106,8 +106,12 @@ An Iron-Man-style screen for JARVIS that runs on your own computer:
 
 - **Comms** on the left: the conversation, with formatting, picking up where
   you left off (it reads the same `~/.jarvis` memory as the terminal).
-- **The core** in the middle shows what JARVIS is doing: standing by,
-  listening (amber), thinking (spinning fast) or speaking (pulsing).
+- **The robot** in the middle is a 3D humanoid that acts out what JARVIS is
+  doing: it breathes and follows your mouse when standing by, leans in and
+  turns amber when listening, puts a hand to its chin with its halo spinning
+  while thinking, and moves its mouth lights and hands while speaking. It
+  powers down when JARVIS is offline. If your browser can't do 3D (no
+  WebGL), you get the animated arc-reactor core instead.
 - **Systems** on the right: every tool JARVIS runs, live, with its input and
   result (web searches, weather, apps, files...). Click a long result to expand it.
 - **Type** in the bar at the bottom, or press the **mic** (or Ctrl+Space) and
@@ -120,7 +124,9 @@ An Iron-Man-style screen for JARVIS that runs on your own computer:
 The mic and spoken replies use the same local Whisper and text-to-speech as
 voice mode, so they need `pip install -e ".[voice]"`. Without it the HUD still
 works for typing, and tells you what's missing. The HUD itself needs no extra
-packages.
+packages, and works offline: the robot is drawn in code with
+[three.js](https://threejs.org) (MIT licence), which ships inside JARVIS
+(`jarvis/hud/static/three.module.min.js`), so nothing is downloaded.
 
 | Option | What it does |
 |---|---|
@@ -335,7 +341,7 @@ Good to know:
 | `jarvis/config.py` | Settings and JARVIS's personality (system prompt) |
 | `jarvis/chat.py` | Asks the brain and turns API errors into something JARVIS can say |
 | `jarvis/voice/` | Voice mode: `ears.py` (mic + Whisper), `mouth.py` (TTS), `wake.py` (wake word), `session.py` (the listen, think, speak loop) |
-| `jarvis/hud/` | The HUD: `app.py` (runs requests, publishes live events), `server.py` (local web server), `voice.py` (hooks up the mic and TTS), `static/` (the page) |
+| `jarvis/hud/` | The HUD: `app.py` (runs requests, publishes live events), `server.py` (local web server), `voice.py` (hooks up the mic and TTS), `static/` (the page; `robot.js` is the 3D robot) |
 | `jarvis/__main__.py` | Command line: text chat, `--voice`, `--speak`, `--hud` |
 
 Memory lives in `~/.jarvis/` (`conversation.json` and `facts.json`), so JARVIS
