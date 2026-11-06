@@ -12,12 +12,25 @@ dependencies = ["anthropic>=2.6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# Nicer extras for the skills: battery/memory info and deleting to the Recycle Bin.
+skills = ["psutil>=5.9", "send2trash>=1.8"]
+voice = [
+    "faster-whisper>=1.1",
+    "sounddevice>=0.5",
+    "numpy>=1.26",
+    "pyttsx3>=2.98",
+]
+# Phone mode (--phone): HTTPS certificate and the pairing QR code.
+phone = ["cryptography>=42", "segno>=1.6"]
 
 [project.scripts]
 jarvis = "jarvis.__main__:main"
 
 [tool.setuptools]
-packages = ["jarvis"]
+packages = ["jarvis", "jarvis.voice", "jarvis.skills", "jarvis.hud"]
+
+[tool.setuptools.package-data]
+"jarvis.hud" = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
