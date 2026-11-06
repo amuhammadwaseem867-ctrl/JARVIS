@@ -6,11 +6,11 @@ provider whose API key it finds, in this order:
 
 | provider   | key variable          | cost                        | default model            |
 |------------|-----------------------|-----------------------------|--------------------------|
-| groq       | ``GROQ_API_KEY``      | free tier, no card          | llama-3.3-70b-versatile  |
-| cerebras   | ``CEREBRAS_API_KEY``  | free tier, no card          | gpt-oss-120b             |
+| groq       | ``GROQ_API_KEY``      | free tier, no card          | openai/gpt-oss-120b      |
 | gemini     | ``GEMINI_API_KEY``    | free tier, no card          | gemini-2.5-flash         |
 | openrouter | ``OPENROUTER_API_KEY``| free models, no card        | openrouter/free          |
 | mistral    | ``MISTRAL_API_KEY``   | free "Experiment" plan      | mistral-small-latest     |
+| cerebras   | ``CEREBRAS_API_KEY``  | one-time $5 trial, card     | gpt-oss-120b             |
 | claude     | ``ANTHROPIC_API_KEY`` | paid                        | claude-opus-5-5          |
 | ollama     | none                  | free, runs on your computer | llama3.1                 |
 
@@ -47,13 +47,14 @@ from typing import Any, Callable
 
 log = logging.getLogger("jarvis.providers")
 
-PROVIDERS = ("groq", "cerebras", "gemini", "openrouter", "mistral", "claude", "ollama")
+PROVIDERS = ("groq", "gemini", "openrouter", "mistral", "cerebras", "claude", "ollama")
 # Free providers that need a key, in the order JARVIS prefers them.
-FREE_PROVIDERS = ("groq", "cerebras", "gemini", "openrouter", "mistral")
+FREE_PROVIDERS = ("groq", "gemini", "openrouter", "mistral", "cerebras")
 
 DEFAULT_MODELS = {
     "claude": "claude-opus-5-5",
-    "groq": "llama-3.3-70b-versatile",
+    # Groq retired Llama 3.3 70B for free accounts in August 2026.
+    "groq": "openai/gpt-oss-120b",
     "cerebras": "gpt-oss-120b",
     "gemini": "gemini-2.5-flash",
     # OpenRouter's own router: picks a free model that supports tools.

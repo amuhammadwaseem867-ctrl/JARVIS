@@ -64,7 +64,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--provider",
         choices=PROVIDERS,
         help="which AI to use (default: JARVIS_PROVIDER, else the first API key found: "
-        "GROQ, CEREBRAS, GEMINI, OPENROUTER, MISTRAL, then ANTHROPIC)",
+        "GROQ, GEMINI, OPENROUTER, MISTRAL, CEREBRAS, then ANTHROPIC)",
     )
     p.add_argument("--model", help="model name for the chosen provider (default: its usual one)")
     p.add_argument("--list-voices", action="store_true", help="list text-to-speech voices and exit")

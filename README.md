@@ -285,11 +285,11 @@ same tools (time, calculator, memory, weather, apps, files, web search):
 
 | Provider | Free key from | Key variable | Default model |
 |---|---|---|---|
-| **Groq** (recommended) | [console.groq.com/keys](https://console.groq.com/keys), no card | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
-| Cerebras | [cloud.cerebras.ai](https://cloud.cerebras.ai) (API Keys), no card | `CEREBRAS_API_KEY` | `gpt-oss-120b` |
+| **Groq** (recommended) | [console.groq.com/keys](https://console.groq.com/keys), no card | `GROQ_API_KEY` | `openai/gpt-oss-120b` |
 | Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey), no card | `GEMINI_API_KEY` | `gemini-2.5-flash` |
 | OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys), no card | `OPENROUTER_API_KEY` | `openrouter/free` (picks a free model that can use tools) |
 | Mistral | [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys), free "Experiment" plan (needs a phone number) | `MISTRAL_API_KEY` | `mistral-small-latest` |
+| Cerebras | [cloud.cerebras.ai](https://cloud.cerebras.ai): not really free any more, a one-time $5 trial that needs a card | `CEREBRAS_API_KEY` | `gpt-oss-120b` |
 | Ollama | Nothing: runs on your own computer ([ollama.com](https://ollama.com)) | | `llama3.1` |
 
 Nothing extra to install: JARVIS talks to them with Python's standard library.
@@ -304,19 +304,19 @@ python -m jarvis                          # or --hud, --phone, --voice as usual
 On Mac/Linux: `export GROQ_API_KEY=gsk_...` then `python -m jarvis`.
 
 JARVIS picks the provider by itself: `JARVIS_PROVIDER` if you set it, otherwise
-the first key it finds in the order of the table (Groq, Cerebras, Gemini,
-OpenRouter, Mistral), then `ANTHROPIC_API_KEY`. To choose for one run:
+the first key it finds in the order of the table (Groq, Gemini, OpenRouter,
+Mistral, Cerebras), then `ANTHROPIC_API_KEY`. To choose for one run:
 `python -m jarvis --provider cerebras` (or `groq`, `gemini`, `openrouter`,
 `mistral`, `claude`, `ollama`), and `--model <name>` for a different model,
-e.g. `--model openai/gpt-oss-120b` on Groq. To change one provider's model for
-good: `setx JARVIS_GROQ_MODEL "openai/gpt-oss-120b"` (same for
+e.g. `--model openai/gpt-oss-20b` on Groq (faster, a bit less clever). To change one provider's model for
+good: `setx JARVIS_GROQ_MODEL "openai/gpt-oss-20b"` (same for
 `JARVIS_CEREBRAS_MODEL`, `JARVIS_GEMINI_MODEL`, ...).
 
 **Auto-switch.** Set keys for more than one free provider and JARVIS uses the
 others as backups: when the main one hits its rate limit or fails, it asks the
 next one and keeps going, and leaves the tired one alone for a minute. The
-startup line shows the order, e.g. `groq: llama-3.3-70b-versatile; backup:
-cerebras, gemini`. `JARVIS_FALLBACK` changes it: `auto` (default, every free
+startup line shows the order, e.g. `groq: openai/gpt-oss-120b; backup:
+gemini, openrouter`. `JARVIS_FALLBACK` changes it: `auto` (default, every free
 provider with a key), a list like `cerebras,gemini`, or `none`. Claude never
 switches to another service by itself.
 

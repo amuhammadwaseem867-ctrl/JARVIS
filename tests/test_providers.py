@@ -32,7 +32,7 @@ def chat_reply(content=None, tool_calls=None, finish="stop"):
     msg = {"role": "assistant", "content": content}
     if tool_calls:
         msg["tool_calls"] = tool_calls
-    return {"model": "llama-3.3-70b-versatile",
+    return {"model": "openai/gpt-oss-120b",
             "choices": [{"message": msg, "finish_reason": finish}]}
 
 
@@ -87,10 +87,13 @@ def test_groq_key_is_preferred(monkeypatch):
 def test_config_uses_provider_default_model(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "q")
     cfg = BrainConfig.from_env()
-    assert (cfg.provider, cfg.model) == ("groq", "llama-3.3-70b-versatile")
-    monkeypatch.setenv("JARVIS_MODEL", "openai/gpt-oss-120b")
-    assert BrainConfig.from_env().model == "openai/gpt-oss-120b"
+    assert (cfg.provider, cfg.model) == ("groq", "openai/gpt-oss-120b")
+    monkeypatch.setenv("JARVIS_MODEL", "openai/gpt-oss-20b")
+    assert BrainConfig.from_env().model == "openai/gpt-oss-20b"
     assert BrainConfig().model == "claude-opus-5-5"
+    monkeypatch.delenv("JARVIS_MODEL")
+    monkeypatch.setenv("JARVIS_GROQ_MODEL", "qwen/qwen3.6-27b")
+    assert BrainConfig.from_env().model == "qwen/qwen3.6-27b"
 
 
 def test_missing_key_says_where_to_get_one(tmp_path):
@@ -120,7 +123,7 @@ def test_groq_tool_loop(tmp_path, monkeypatch):
     assert first["url"] == "https://api.groq.com/openai/v1/chat/completions"
     assert first["headers"]["Authorization"] == "Bearer k"
     body = first["body"]
-    assert body["model"] == "llama-3.3-70b-versatile"
+    assert body["model"] == "openai/gpt-oss-120b"
     assert body["messages"][0]["role"] == "system"
     assert body["messages"][1] == {"role": "user", "content": "6 times 7?"}
     names = [t["function"]["name"] for t in body["tools"]]
@@ -282,12 +285,14 @@ def test_fetch_refuses_local_addresses(url):
 # ------------------------------------------------- more providers, fallback
 
 def test_new_providers_are_detected_in_order(monkeypatch):
+    monkeypatch.setenv("CEREBRAS_API_KEY", "c")
+    assert providers.detect_provider() == "cerebras"
     monkeypatch.setenv("MISTRAL_API_KEY", "m")
     assert providers.detect_provider() == "mistral"
     monkeypatch.setenv("OPENROUTER_API_KEY", "o")
     assert providers.detect_provider() == "openrouter"
-    monkeypatch.setenv("CEREBRAS_API_KEY", "c")
-    assert providers.detect_provider() == "cerebras"
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    assert providers.detect_provider() == "gemini"
 
 
 @pytest.mark.parametrize("name,url", [
@@ -316,7 +321,7 @@ def test_fallback_list(monkeypatch):
     assert providers.fallback_names("groq") == []
     monkeypatch.setenv("GEMINI_API_KEY", "g")
     monkeypatch.setenv("CEREBRAS_API_KEY", "c")
-    assert providers.fallback_names("groq") == ["cerebras", "gemini"]
+    assert providers.fallback_names("groq") == ["gemini", "cerebras"]
     assert providers.fallback_names("claude") == []
     monkeypatch.setenv("JARVIS_FALLBACK", "gemini,mistral")  # no Mistral key: skipped
     assert providers.fallback_names("groq") == ["gemini"]
@@ -330,12 +335,12 @@ def test_fallback_list(monkeypatch):
 def test_switches_provider_on_rate_limit(tmp_path, monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "q")
     monkeypatch.setenv("CEREBRAS_API_KEY", "c")
-    monkeypatch.setenv("JARVIS_GROQ_MODEL", "openai/gpt-oss-120b")
+    monkeypatch.setenv("JARVIS_GROQ_MODEL", "openai/gpt-oss-20b")
     brain = Brain(config=BrainConfig(provider="groq", data_dir=tmp_path), skills=SkillsConfig(enabled=()))
     fb = brain.provider
     assert [p.name for p in fb.providers] == ["groq", "cerebras"]
     groq, cerebras = fb.providers
-    assert groq.model == "llama-3.3-70b-versatile"  # config.model wins for the main one
+    assert groq.model == "openai/gpt-oss-120b"  # BrainConfig's model wins for the main one
     now = [0.0]
     fb.clock = lambda: now[0]
     switches = []

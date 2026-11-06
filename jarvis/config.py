@@ -65,7 +65,10 @@ class BrainConfig:
     @classmethod
     def from_env(cls) -> "BrainConfig":
         provider = detect_provider()
-        cfg = cls(provider=provider, model=os.environ.get("JARVIS_MODEL", ""))
+        model = os.environ.get("JARVIS_MODEL") or os.environ.get(
+            f"JARVIS_{provider.upper()}_MODEL", ""
+        )
+        cfg = cls(provider=provider, model=model)
         cfg.effort = os.environ.get("JARVIS_EFFORT", cfg.effort)
         cfg.max_tokens = int(os.environ.get("JARVIS_MAX_TOKENS", cfg.max_tokens))
         cfg.max_tool_rounds = int(
