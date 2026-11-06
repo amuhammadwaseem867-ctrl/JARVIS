@@ -7,10 +7,14 @@ import os
 import sys
 
 from .brain import Brain, ToolCall
-from .chat import FatalError, ask
+from .chat import AGENT_COMMANDS_HELP, FatalError, agent_command, ask
 from .providers import PROVIDERS
 
-HELP = "Commands: /reset (new conversation), /facts (show memory), /quit"
+HELP = (
+    "Commands: /reset (new conversation), /facts (show memory), "
+    + AGENT_COMMANDS_HELP
+    + ", /quit"
+)
 
 
 def show_tool(call: ToolCall) -> None:
@@ -145,6 +149,13 @@ def run_text(speak: bool = False) -> int:
         if text == "/facts":
             print(brain.facts.search("") or "No facts saved yet.")
             continue
+        if text.startswith("/"):
+            shown = agent_command(brain, text)
+            if shown is not None:
+                print(shown)
+                if mouth and text.lower().startswith("/agent "):
+                    mouth.say(shown)
+                continue
 
         answer = ask(brain, text)
         print(f"jarvis > {answer}")

@@ -243,6 +243,51 @@ permanently, install the extras: `pip install -e ".[skills]"`.
 | `JARVIS_FILES_ROOT` | your home folder | The only folder the file tools can touch |
 | `JARVIS_MAX_WEB_SEARCHES` | `5` | Most web searches per request |
 
+## Specialist agents
+
+JARVIS has a team of specialist agents (weather, translator, writer, coder,
+web-researcher, file-manager, system-monitor, summariser). Each one has its own
+short prompt and only the few tools it needs, which keeps requests small on
+free API limits. The full plan for growing this to 40-50 agents is in
+[docs/AGENTS_PLAN.md](docs/AGENTS_PLAN.md); for now you call an agent by name:
+
+```
+you > /agents                                  # list them
+you > /agent translator good night, see you tomorrow
+jarvis > [translator] شب بخیر، کل ملتے ہیں
+         Shab bakhair, kal milte hain
+you > /status                                  # model, agents, failures
+```
+
+These commands work in text mode and in the HUD's text box.
+
+**It doesn't crash.** Every agent runs under a supervisor with a time limit
+(the clock stops while you answer a "yes/no" confirmation). A crash, timeout or
+API error comes back as "the coder agent couldn't do that: ..." and JARVIS keeps
+running. An agent that fails 3 times in 5 minutes is switched off for 10 minutes.
+Any unexpected error while answering a normal message is logged and reported
+the same way instead of closing JARVIS.
+
+**Add your own agent** by saving a Markdown file in `~/.jarvis/agents/`
+(a file with the same name as a built-in one replaces it):
+
+```markdown
+---
+name: cricket
+description: Live cricket scores and match news.
+keywords: cricket, score, match, psl, babar
+tools: web_search, web_fetch
+tier: small          # small | medium | large
+max_rounds: 3        # rounds of tool use before it must answer
+timeout: 60          # seconds
+---
+You are JARVIS's cricket specialist. Search for the latest score and ...
+```
+
+Tool names are the ones listed under [Skills](#skills) plus `get_current_time`,
+`calculate`, `remember`, `recall` and `forget`. A broken file is skipped and
+shown in `/agents` and `/status`.
+
 ## Using the brain from code
 
 ```python

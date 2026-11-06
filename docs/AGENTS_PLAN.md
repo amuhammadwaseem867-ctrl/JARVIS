@@ -1,6 +1,7 @@
 # Plan: 40–50 specialist agents under JARVIS
 
-Status: **plan only, no code yet.** Written for how JARVIS actually runs today:
+Status: **Phase 1 built** (agent files, registry, supervisor, `/agents`,
+`/agent`, `/status`, 8 starter agents). Phases 2-5 are still plans. Written for how JARVIS actually runs today:
 one Windows PC, slow internet, and free-tier API keys (Groq, Cerebras, Gemini,
 OpenRouter, Mistral) that each have per-minute and per-day limits.
 
@@ -84,20 +85,26 @@ What that means in practice:
 
 ### 3.1 Agents are config files (registry + lazy loading)
 
-Each agent is one small file in `jarvis/agents/`, e.g. `weather.toml`:
+Each agent is one small Markdown file in `jarvis/agents/builtin/` (or the
+user's `~/.jarvis/agents/`), e.g. `weather.md`:
 
-```toml
-name        = "weather"
-description = "Current weather and forecasts for any city."
-keywords    = ["weather", "rain", "temperature", "forecast", "mausam", "barish"]
-tools       = ["get_weather", "get_current_time"]
-model_tier  = "small"        # small | medium | large
-max_rounds  = 3              # tool-call rounds before it must answer
-timeout_s   = 30
-background  = false
+```markdown
+---
+name: weather
+description: Current weather and forecasts for any city.
+keywords: weather, rain, temperature, forecast, mausam, barish
+tools: get_weather, get_current_time
+tier: small          # small | medium | large
+max_rounds: 3        # tool-call rounds before it must answer
+timeout: 30
+---
+You are JARVIS's weather specialist. ...
 ```
 
-plus an optional `weather.md` holding its prompt. The **registry** reads only the
+The header-plus-prompt layout is the same one used by popular agent
+collections, so outside agents can be imported later (unknown header keys are
+ignored). Python's standard library is enough to read it (no TOML needed on
+Python 3.10). The **registry** reads only the
 `name`, `description` and `keywords` of every agent at startup (a few KB). The
 prompt and tools are loaded the first time that agent is needed and kept in a
 small cache (the last ~10 used). This is why 50 agents cost almost nothing at

@@ -19,8 +19,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .agents import BUILTIN_DIR, AgentFileError, AgentRegistry, AgentSpec
 from .config import BrainConfig
 from .memory import ConversationMemory, FactStore
+from .supervisor import Supervisor
 from .providers import make_provider
 from .skills import SkillsConfig, register_skills
 from .tools import Confirmer, ToolRegistry, register_builtin_tools
@@ -47,6 +49,26 @@ class Reply:
     # fallback model stepped in after a refusal).
     model: str | None = None
     refused: bool = False
+
+
+@dataclass
+class AgentResult:
+    """What a specialist agent hands back to JARVIS."""
+
+    agent: str
+    ok: bool
+    text: str
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    error: str = ""
+    seconds: float = 0.0
+
+
+AGENT_FOOTER = """
+
+You are one of JARVIS's specialist agents. JARVIS gives you one task and passes \
+your answer on to the user, so answer the task directly and completely in plain \
+language. Use only the tools you have been given. If you can't do the task, say \
+so in one sentence."""
 
 
 class Brain:
@@ -90,6 +112,9 @@ class Brain:
             # Anthropic runs web search itself; other providers use JARVIS's own.
             server_web=self.config.provider == "claude",
         )
+        # Specialist agents: built-in ones plus the user's own in ~/.jarvis/agents.
+        self.agents = AgentRegistry([BUILTIN_DIR, self.config.data_dir / "agents"])
+        self.supervisor = Supervisor()
 
     # ------------------------------------------------------------------ API
 
@@ -169,11 +194,93 @@ class Brain:
             self.memory.rollback(checkpoint)
             raise
 
+    def run_agent(self, name: str, task: str) -> AgentResult:
+        """Give ``task`` to one specialist agent and return its answer.
+
+        Never raises: a missing agent, a crash, a timeout or an API error all
+        come back as ``AgentResult(ok=False)`` with the reason, and an agent
+        that keeps failing is switched off for a while by the supervisor.
+        The agent works in its own scratch conversation, so nothing it does
+        is added to JARVIS's conversation history.
+        """
+        name = name.strip().lower()
+        try:
+            spec = self.agents.get(name)
+        except KeyError:
+            return AgentResult(name, False, "", error=f"there's no agent called '{name}'")
+        except (AgentFileError, OSError) as exc:
+            return AgentResult(name, False, "", error=f"its file is broken: {exc}")
+
+        tool_calls: list[ToolCall] = []
+        outcome = self.supervisor.run(
+            f"agent:{name}",
+            lambda: self._agent_loop(spec, task, tool_calls),
+            timeout=spec.timeout,
+            paused=lambda: self.tools.waiting_on_user > 0,
+        )
+        if outcome.ok:
+            return AgentResult(name, True, outcome.value, tool_calls, seconds=outcome.seconds)
+        log.warning("agent %s failed: %s", name, outcome.error)
+        return AgentResult(name, False, "", tool_calls, outcome.error, outcome.seconds)
+
+    def agent_tools(self, spec: AgentSpec) -> list[str]:
+        """The agent's tools that are actually switched on right now."""
+        available = set(self.tools.names())
+        return [t for t in spec.tools if t in available]
+
+    def status(self) -> dict[str, Any]:
+        """A snapshot of JARVIS's health, for ``/status`` and the HUD."""
+        return {
+            "provider": self.config.provider,
+            "model": self.config.model,
+            "tools": len(self.tools.names()),
+            "agents": len(self.agents),
+            "agents_loaded": self.agents.loaded(),
+            "agent_file_errors": [f"{p.name}: {e}" for p, e in self.agents.errors],
+            "jobs": self.supervisor.status(),
+        }
+
     def reset(self) -> None:
         """Forget the current conversation (long-term facts are kept)."""
         self.memory.clear()
 
     # ------------------------------------------------------------ internals
+
+    def _agent_loop(self, spec: AgentSpec, task: str, tool_calls: list[ToolCall]) -> str:
+        allowed = self.agent_tools(spec)
+        schemas = self.tools.schemas(only=allowed)
+        system = spec.prompt + AGENT_FOOTER
+        scratch = ConversationMemory(None)
+        scratch.add_user(task)
+        for _ in range(spec.max_rounds):
+            response = self.provider.create(system, scratch.messages, schemas)
+            if response.stop_reason == "refusal":
+                return "I'm afraid I can't help with that one."
+            scratch.add_assistant(response.content)
+            tool_uses = [b for b in response.content if b.type == "tool_use"]
+            if response.stop_reason == "pause_turn":
+                continue
+            if not tool_uses:
+                return _text_of(response.content)
+            results = []
+            for block in tool_uses:
+                if response.stop_reason == "max_tokens":
+                    result, is_error = "Output was cut off before this call finished.", True
+                else:
+                    result, is_error = self.tools.run(block.name, block.input, allowed=allowed)
+                call = ToolCall(block.name, block.input, result, is_error)
+                tool_calls.append(call)
+                log.info("agent %s: tool %s -> %s", spec.name, block.name, result[:200])
+                if self.on_tool_call:
+                    try:
+                        self.on_tool_call(call)
+                    except Exception:  # a display glitch mustn't stop the agent
+                        log.exception("on_tool_call failed")
+                results.append(
+                    {"type": "tool_result", "tool_use_id": block.id, "content": result, "is_error": is_error}
+                )
+            scratch.add_user(results)
+        raise RuntimeError(f"didn't finish within {spec.max_rounds} rounds of tool use")
 
     def _call_model(self) -> Any:
         return self.provider.create(

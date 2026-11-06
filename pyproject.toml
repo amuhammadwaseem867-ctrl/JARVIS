@@ -27,10 +27,11 @@ phone = ["cryptography>=42", "segno>=1.6"]
 jarvis = "jarvis.__main__:main"
 
 [tool.setuptools]
-packages = ["jarvis", "jarvis.voice", "jarvis.skills", "jarvis.hud"]
+packages = ["jarvis", "jarvis.voice", "jarvis.skills", "jarvis.hud", "jarvis.agents"]
 
 [tool.setuptools.package-data]
 "jarvis.hud" = ["static/*"]
+"jarvis.agents" = ["builtin/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
