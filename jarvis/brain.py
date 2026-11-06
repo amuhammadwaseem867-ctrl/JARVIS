@@ -15,11 +15,15 @@ result back, and lets Claude continue until it has a final answer.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .agents import BUILTIN_DIR, AgentFileError, AgentRegistry, AgentSpec
+from .budget import Budget
+from .cache import AGENT_TTL, TOOL_TTL, Cache
 from .config import BrainConfig
 from .memory import ConversationMemory, FactStore
 from .supervisor import Supervisor
@@ -61,6 +65,7 @@ class AgentResult:
     tool_calls: list[ToolCall] = field(default_factory=list)
     error: str = ""
     seconds: float = 0.0
+    cached: bool = False
 
 
 AGENT_FOOTER = """
@@ -97,14 +102,22 @@ class Brain:
                 set later as ``brain.tools.confirm``.
         """
         self.config = config or BrainConfig.from_env()
-        self.provider = make_provider(self.config, client)
+        # Rate-limit tracking for the free providers, shared by every agent.
+        self.budget = Budget(self.config.data_dir / "budget.json" if persist else None)
+        self.provider = make_provider(self.config, client, self.budget)
         # The Anthropic client when the provider is Claude, else None.
         self.client = getattr(self.provider, "client", None)
         self.on_tool_call = on_tool_call
 
         self.memory = ConversationMemory(self.config.conversation_path if persist else None)
         self.facts = FactStore(self.config.facts_path if persist else None)
+        use_cache = os.environ.get("JARVIS_CACHE", "1").strip().lower() not in ("0", "no", "off", "false")
+        self.cache: Cache | None = (
+            Cache(self.config.data_dir / "cache.db" if persist else None) if use_cache else None
+        )
         self.tools = ToolRegistry(confirm=confirm)
+        self.tools.cache = self.cache
+        self.tools.cache_ttl = dict(TOOL_TTL)
         register_builtin_tools(self.tools, self.facts)
         register_skills(
             self.tools,
@@ -211,6 +224,12 @@ class Brain:
         except (AgentFileError, OSError) as exc:
             return AgentResult(name, False, "", error=f"its file is broken: {exc}")
 
+        cache_key = f"{name}\n{' '.join(task.lower().split())}"
+        if self.cache is not None:
+            hit = self.cache.get("agent", cache_key)
+            if hit is not None:
+                return AgentResult(name, True, hit, cached=True)
+
         tool_calls: list[ToolCall] = []
         outcome = self.supervisor.run(
             f"agent:{name}",
@@ -219,9 +238,22 @@ class Brain:
             paused=lambda: self.tools.waiting_on_user > 0,
         )
         if outcome.ok:
+            if self.cache is not None and outcome.value:
+                self.cache.put("agent", cache_key, outcome.value, self._answer_ttl(tool_calls))
             return AgentResult(name, True, outcome.value, tool_calls, seconds=outcome.seconds)
         log.warning("agent %s failed: %s", name, outcome.error)
         return AgentResult(name, False, "", tool_calls, outcome.error, outcome.seconds)
+
+    def _answer_ttl(self, tool_calls: list[ToolCall]) -> float:
+        """How long an agent's answer may be reused: an hour if it used no
+        tools, as long as its freshest cached tool result if it only used
+        cacheable tools, otherwise not at all (time, files, system state...)."""
+        if not tool_calls:
+            return AGENT_TTL
+        ttls = [self.tools.cache_ttl.get(c.name, 0) for c in tool_calls]
+        if any(c.is_error for c in tool_calls) or not all(ttls):
+            return 0
+        return min(ttls)
 
     def agent_tools(self, spec: AgentSpec) -> list[str]:
         """The agent's tools that are actually switched on right now."""
@@ -238,6 +270,8 @@ class Brain:
             "agents_loaded": self.agents.loaded(),
             "agent_file_errors": [f"{p.name}: {e}" for p, e in self.agents.errors],
             "jobs": self.supervisor.status(),
+            "budget": self.budget.status(),
+            "cache": self.cache.stats() if self.cache is not None else None,
         }
 
     def reset(self) -> None:
@@ -253,7 +287,7 @@ class Brain:
         scratch = ConversationMemory(None)
         scratch.add_user(task)
         for _ in range(spec.max_rounds):
-            response = self.provider.create(system, scratch.messages, schemas)
+            response = self.provider.create(system, scratch.messages, schemas, tier=spec.tier)
             if response.stop_reason == "refusal":
                 return "I'm afraid I can't help with that one."
             scratch.add_assistant(response.content)

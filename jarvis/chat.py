@@ -97,7 +97,8 @@ def agent_command(brain: Brain, text: str) -> str | None:
             return "Usage: /agent NAME TASK, e.g. /agent translator say good morning in Urdu"
         result = brain.run_agent(parts[1], parts[2])
         if result.ok:
-            return f"[{result.agent}] {result.text}"
+            tag = f"{result.agent}, from cache" if result.cached else result.agent
+            return f"[{tag}] {result.text}"
         return f"The {result.agent} agent couldn't do that: {result.error}"
     if cmd == "/status":
         s = brain.status()
@@ -113,5 +114,24 @@ def agent_command(brain: Brain, text: str) -> str | None:
             lines.append(f"  {job:<22} {h['state']}, {h['runs']} runs, {h['failed']} failed{err}")
         if not s["jobs"]:
             lines.append("No agents have run yet.")
+        if s["budget"]:
+            lines.append("Free-tier use (this minute / today):")
+        for name, b in s["budget"].items():
+            lim = b["limits"]
+            minute = _of(b["minute_requests"], lim["rpm"]) + " req"
+            if lim["tpm"]:
+                minute += f", {_of(b['minute_tokens'], lim['tpm'])} tokens"
+            day = _of(b["day_requests"], lim["rpd"]) + " req"
+            if lim["tpd"]:
+                day += f", {_of(b['day_tokens'], lim['tpd'])} tokens"
+            rest = f"  resting {b['resting']}s ({b['rest_reason']})" if b["resting"] else ""
+            lines.append(f"  {name:<11} {minute} / {day}{rest}")
+        if s["cache"] is not None:
+            c = s["cache"]
+            lines.append(f"Cache: {c['entries']} saved answers, {c['hits']} hits, {c['misses']} misses")
         return "\n".join(lines)
     return None
+
+
+def _of(used: int, limit: int) -> str:
+    return f"{used}/{limit}" if limit else str(used)

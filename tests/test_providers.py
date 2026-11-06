@@ -183,6 +183,7 @@ def test_errors_become_messages(tmp_path, monkeypatch):
     with pytest.raises(FatalError, match="GROQ_API_KEY"):
         ask(brain, "hi")
 
+    monkeypatch.setenv("JARVIS_FALLBACK", "none")  # Groq's key is still set
     brain, _ = make_brain(tmp_path, monkeypatch, provider="gemini", skills=())
     brain.provider.post = FakePost(
         http_error(400, [{"error": {"message": "API key not valid. Please pass a valid API key."}}]))
