@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jarvis"
 version = "0.1.0"
-description = "JARVIS: a personal assistant powered by Claude"
+description = "JARVIS: a personal assistant powered by Claude or a free model"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["anthropic>=2.6"]

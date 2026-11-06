@@ -1,4 +1,4 @@
-"""The JARVIS brain: Claude in an agent loop with memory and tools.
+"""The JARVIS brain: an AI model (Claude, or a free one) in an agent loop with memory and tools.
 
 Typical use from the rest of the app::
 
@@ -19,16 +19,13 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-import anthropic
-
 from .config import BrainConfig
 from .memory import ConversationMemory, FactStore
+from .providers import make_provider
 from .skills import SkillsConfig, register_skills
 from .tools import Confirmer, ToolRegistry, register_builtin_tools
 
 log = logging.getLogger("jarvis.brain")
-
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 @dataclass
@@ -65,7 +62,8 @@ class Brain:
         """
         Args:
             config: settings; defaults to ``BrainConfig.from_env()``.
-            client: an ``anthropic.Anthropic`` client (injectable for tests).
+            client: an ``anthropic.Anthropic`` client (injectable for tests;
+                only used when the provider is Claude).
             persist: save conversation and facts under ``config.data_dir``.
             on_tool_call: optional callback fired after each tool runs, so a
                 UI or voice layer can show "checking the time..." etc.
@@ -77,14 +75,21 @@ class Brain:
                 set later as ``brain.tools.confirm``.
         """
         self.config = config or BrainConfig.from_env()
-        self.client = client or anthropic.Anthropic()
+        self.provider = make_provider(self.config, client)
+        # The Anthropic client when the provider is Claude, else None.
+        self.client = getattr(self.provider, "client", None)
         self.on_tool_call = on_tool_call
 
         self.memory = ConversationMemory(self.config.conversation_path if persist else None)
         self.facts = FactStore(self.config.facts_path if persist else None)
         self.tools = ToolRegistry(confirm=confirm)
         register_builtin_tools(self.tools, self.facts)
-        register_skills(self.tools, skills or SkillsConfig.from_env())
+        register_skills(
+            self.tools,
+            skills or SkillsConfig.from_env(),
+            # Anthropic runs web search itself; other providers use JARVIS's own.
+            server_web=self.config.provider == "claude",
+        )
 
     # ------------------------------------------------------------------ API
 
@@ -96,7 +101,7 @@ class Brain:
 
         try:
             for _ in range(self.config.max_tool_rounds):
-                response = self._call_claude()
+                response = self._call_model()
 
                 if response.stop_reason == "refusal":
                     # Drop this turn so the declined request isn't replayed.
@@ -170,22 +175,10 @@ class Brain:
 
     # ------------------------------------------------------------ internals
 
-    def _call_claude(self) -> Any:
-        params: dict[str, Any] = {
-            "model": self.config.model,
-            "max_tokens": self.config.max_tokens,
-            "system": self.config.system_prompt,
-            "messages": self.memory.messages,
-            "tools": self.tools.schemas(),
-            "output_config": {"effort": self.config.effort},
-            # Caches the system prompt, tools and history between calls.
-            "cache_control": {"type": "ephemeral"},
-        }
-        if self.config.use_fallbacks:
-            return self.client.beta.messages.create(
-                betas=[FALLBACK_BETA], fallbacks="default", **params
-            )
-        return self.client.messages.create(**params)
+    def _call_model(self) -> Any:
+        return self.provider.create(
+            self.config.system_prompt, self.memory.messages, self.tools.schemas()
+        )
 
 
 def _text_of(content: list[Any]) -> str:

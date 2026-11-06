@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from .brain import Brain, ToolCall
 from .chat import FatalError, ask
+from .providers import PROVIDERS
 
 HELP = "Commands: /reset (new conversation), /facts (show memory), /quit"
 
@@ -58,12 +60,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--forget-phones", action="store_true", help="unpair every phone paired with --phone, then exit"
     )
+    p.add_argument(
+        "--provider",
+        choices=PROVIDERS,
+        help="which AI to use (default: JARVIS_PROVIDER, else the first API key found: "
+        "GROQ_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY)",
+    )
+    p.add_argument("--model", help="model name for the chosen provider (default: its usual one)")
     p.add_argument("--list-voices", action="store_true", help="list text-to-speech voices and exit")
     return p.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.provider:
+        os.environ["JARVIS_PROVIDER"] = args.provider
+    if args.model:
+        os.environ["JARVIS_MODEL"] = args.model
     try:
         if args.list_voices:
             from .voice.config import VoiceConfig
@@ -90,6 +103,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
 
+def _label(brain: Brain) -> str:
+    provider = getattr(brain.config, "provider", "")
+    return f"{provider}: {brain.config.model}" if provider else brain.config.model
+
+
 def _voice_brain() -> Brain:
     from .voice.session import VOICE_PROMPT
 
@@ -108,7 +126,7 @@ def run_text(speak: bool = False) -> int:
         brain = _voice_brain()
     else:
         brain = Brain(on_tool_call=show_tool, confirm=confirm_typed)
-    print(f"JARVIS online ({brain.config.model}). {HELP}")
+    print(f"JARVIS online ({_label(brain)}). {HELP}")
 
     while True:
         try:
@@ -144,7 +162,7 @@ def run_voice(push_to_talk: bool = False) -> int:
     brain = _voice_brain()
     mouth = Mouth(config)
     ears = Ears(config, on_status=print)
-    print(f"JARVIS online ({brain.config.model}), voice mode.")
+    print(f"JARVIS online ({_label(brain)}), voice mode.")
     session = VoiceSession(brain, ears, mouth, config, push_to_talk=push_to_talk)
     brain.tools.confirm = session.confirm  # ask out loud before risky actions
     try:

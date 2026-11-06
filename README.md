@@ -1,6 +1,7 @@
 # JARVIS
 
-A personal AI assistant powered by Claude.
+A personal AI assistant powered by Claude, or by a free model (Groq, Gemini or
+Ollama) if you don't have Claude API credit.
 
 This repo holds JARVIS's **brain**: the reasoning layer that every
 other part (voice, UI, smart-home hooks) talks to. You give it text, it thinks
@@ -13,6 +14,8 @@ pip install -e ".[dev]"
 export ANTHROPIC_API_KEY=sk-ant-...   # from https://platform.claude.com
 python -m jarvis                       # or just: jarvis
 ```
+
+No Claude credit? Use a free model instead, see [Free models](#free-models).
 
 ```
 you > what's 17% of 2,340?
@@ -198,7 +201,7 @@ Out of the box JARVIS can do more than talk:
 
 | Skill | Try saying | How it works |
 |---|---|---|
-| Web search | "What happened in the cricket today?" | Claude's own web search and page reader, run by Anthropic. No extra key; searches are billed on your Anthropic account |
+| Web search | "What happened in the cricket today?" | With Claude: Anthropic's own web search and page reader (billed per search on your Anthropic account). With a free model: DuckDuckGo, no key |
 | Weather | "Do I need an umbrella tomorrow?" | [Open-Meteo](https://open-meteo.com), free, no key |
 | Websites | "Open YouTube and search for lofi music" | Your default browser |
 | Apps | "Open Spotify", "open the calculator" | The normal way your OS launches programs |
@@ -269,12 +272,51 @@ For anything risky, call `brain.tools.ask_user("Unlock the front door?")`
 inside the tool: it asks the user and stops the tool unless they say yes.
 Pass `Brain(confirm=my_yes_no_function)` to choose how the question is asked.
 
+## Free models
+
+The Claude API is paid. JARVIS can also think with free models, with all the
+same tools (time, calculator, memory, weather, apps, files, web search):
+
+| Provider | Free key from | Key variable | Default model |
+|---|---|---|---|
+| **Groq** (recommended) | [console.groq.com/keys](https://console.groq.com/keys), no card | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
+| Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey), no card | `GEMINI_API_KEY` | `gemini-2.5-flash` |
+| Ollama | Nothing: runs on your own computer ([ollama.com](https://ollama.com)) | | `llama3.1` |
+
+Nothing extra to install: JARVIS talks to them with Python's standard library.
+
+On Windows (PowerShell):
+
+```powershell
+setx GROQ_API_KEY "gsk_your_key_here"    # saves it; open a NEW PowerShell window after this
+python -m jarvis                          # or --hud, --phone, --voice as usual
+```
+
+On Mac/Linux: `export GROQ_API_KEY=gsk_...` then `python -m jarvis`.
+
+JARVIS picks the provider by itself: `JARVIS_PROVIDER` if you set it, otherwise
+the first key it finds out of `GROQ_API_KEY`, `GEMINI_API_KEY`,
+`ANTHROPIC_API_KEY`. To choose for one run: `python -m jarvis --provider gemini`
+(or `claude`, `groq`, `ollama`), and `--model <name>` for a different model,
+e.g. `--model openai/gpt-oss-120b` on Groq.
+
+Good to know:
+
+- **Web search** on free models uses DuckDuckGo (no key) and JARVIS reads
+  pages itself, instead of Anthropic's built-in search. It won't open
+  addresses on your own computer or home network.
+- **Free tiers have per-minute limits.** If you ask a lot quickly, JARVIS says
+  it hit the limit; wait a minute.
+- Free models are less careful than Claude at choosing tools. Risky actions
+  still always ask you first.
+- You can switch providers any time; the conversation and memory carry over.
+
 ## How it works
 
 ```
  user text ──► Brain.think()
                  │
-                 ├─► Claude (claude-opus-5-5) ◄── system prompt + tools + history
+                 ├─► the model (Claude, Groq, Gemini or Ollama) ◄── system prompt + tools + history
                  │        │
                  │   wants a tool? ──yes──► ToolRegistry.run() ──► result back to Claude
                  │        │                                         (loops until done)
@@ -289,6 +331,7 @@ Pass `Brain(confirm=my_yes_no_function)` to choose how the question is asked.
 | `jarvis/memory.py` | Short-term memory (conversation history) and long-term memory (facts) |
 | `jarvis/tools.py` | Tool registry plus built-ins: time, calculator, remember / recall / forget |
 | `jarvis/skills/` | Real-world skills: `web.py`, `weather.py`, `apps.py`, `system.py`, `files.py` |
+| `jarvis/providers.py` | Talks to the chosen model: Claude, or Groq / Gemini / Ollama (translates messages and tool calls) |
 | `jarvis/config.py` | Settings and JARVIS's personality (system prompt) |
 | `jarvis/chat.py` | Asks the brain and turns API errors into something JARVIS can say |
 | `jarvis/voice/` | Voice mode: `ears.py` (mic + Whisper), `mouth.py` (TTS), `wake.py` (wake word), `session.py` (the listen, think, speak loop) |
@@ -302,11 +345,13 @@ picks up where it left off after a restart.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | (required) | Your Claude API key |
-| `JARVIS_MODEL` | `claude-opus-5-5` | Claude model to use |
-| `JARVIS_EFFORT` | `medium` | How hard Claude thinks: `low`, `medium`, `high`, `xhigh`, `max` |
-| `JARVIS_MAX_TOKENS` | `16000` | Max length of one response |
+| `JARVIS_PROVIDER` | first key found | `groq`, `gemini`, `claude` or `ollama` (see [Free models](#free-models)) |
+| `GROQ_API_KEY` / `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` | | API key for that provider (one is needed, except for Ollama) |
+| `JARVIS_MODEL` | the provider's default | Model to use |
+| `JARVIS_EFFORT` | `medium` | How hard Claude thinks: `low`, `medium`, `high`, `xhigh`, `max` (Claude only) |
+| `JARVIS_MAX_TOKENS` | `16000` (Claude), `4096` (free) | Max length of one response |
 | `JARVIS_MAX_TOOL_ROUNDS` | `20` | Safety cap on tool calls per message |
+| `JARVIS_OLLAMA_URL` | `http://localhost:11434/v1` | Where Ollama runs (also `JARVIS_GROQ_URL`, `JARVIS_GEMINI_URL`) |
 | `JARVIS_FALLBACKS` | `1` | If Claude declines a request, retry on Anthropic's recommended fallback model. Set `0` to turn off |
 | `JARVIS_SYSTEM_PROMPT_FILE` | | Path to a file that replaces the default personality |
 | `JARVIS_DATA_DIR` | `~/.jarvis` | Where memory is saved |
@@ -317,7 +362,7 @@ picks up where it left off after a restart.
 pytest
 ```
 
-The tests use a fake Claude client and fake ears and mouth, so they run without
+The tests use a fake Claude client, a fake HTTP layer for the free models, and fake ears and mouth, so they run without
 an API key, a microphone or the voice packages. Skill tests swap out the
 network, app launching and volume calls, so running them changes nothing on
 your computer.

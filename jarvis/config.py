@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .providers import DEFAULT_MODELS, detect_provider
+
 DEFAULT_SYSTEM_PROMPT = """\
 You are JARVIS, a personal AI assistant. You are calm, precise, and a little dry \
 in your humour. Address the user as "sir" or "ma'am" only if they ask you to.
@@ -37,11 +39,16 @@ class BrainConfig:
     can just call ``BrainConfig.from_env()``.
     """
 
-    model: str = "claude-opus-5-5"
+    # Which AI service thinks: groq | gemini | claude | ollama (see providers.py).
+    provider: str = "claude"
+    # Empty means the provider's default model.
+    model: str = ""
     # low | medium | high | xhigh | max. Claude Opus 5.5 defaults to medium;
     # we set it explicitly so changing models doesn't silently change depth.
     effort: str = "medium"
-    max_tokens: int = 16000
+    # 0 means the provider's default: 16000 for Claude, 4096 for the free
+    # ones (their per-minute token limits count the requested maximum).
+    max_tokens: int = 0
     # Safety guard against a runaway tool loop within one user turn.
     max_tool_rounds: int = 20
     # Re-run a declined request on Anthropic's recommended fallback model.
@@ -49,10 +56,16 @@ class BrainConfig:
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     data_dir: Path = field(default_factory=_data_dir)
 
+    def __post_init__(self) -> None:
+        if not self.model:
+            self.model = DEFAULT_MODELS.get(self.provider, DEFAULT_MODELS["claude"])
+        if not self.max_tokens:
+            self.max_tokens = 16000 if self.provider == "claude" else 4096
+
     @classmethod
     def from_env(cls) -> "BrainConfig":
-        cfg = cls()
-        cfg.model = os.environ.get("JARVIS_MODEL", cfg.model)
+        provider = detect_provider()
+        cfg = cls(provider=provider, model=os.environ.get("JARVIS_MODEL", ""))
         cfg.effort = os.environ.get("JARVIS_EFFORT", cfg.effort)
         cfg.max_tokens = int(os.environ.get("JARVIS_MAX_TOKENS", cfg.max_tokens))
         cfg.max_tool_rounds = int(
