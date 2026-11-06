@@ -205,7 +205,8 @@ def test_speak_toggle_and_no_mic(tmp_path):
     with pytest.raises(RuntimeError, match="no mic"):
         app.listen()
     assert app.snapshot()["voice"] == {
-        "mic": False, "speech": True, "speak_replies": False, "error": "no mic"
+        "mic": False, "browser_mic": False, "speech": True, "speak_replies": False,
+        "error": "no mic",
     }
 
 

@@ -83,6 +83,45 @@ class Segmenter:
         return None
 
 
+class Transcriber:
+    """Whisper on its own, no microphone: turns 16 kHz mono int16 audio into text.
+
+    ``Ears`` uses it for the computer's microphone; the HUD also uses it for
+    audio recorded on a phone.
+    """
+
+    def __init__(self, config: VoiceConfig, on_status=None):
+        try:
+            import numpy as np
+            from faster_whisper import WhisperModel
+        except ImportError as exc:
+            raise missing_voice_deps(exc) from exc
+
+        self.np = np
+        self.config = config
+        (on_status or (lambda msg: None))(f"Loading speech model '{config.whisper_model}'...")
+        compute = "int8" if config.whisper_device in ("auto", "cpu") else "default"
+        self.model = WhisperModel(
+            config.whisper_model, device=config.whisper_device, compute_type=compute
+        )
+
+    def transcribe(self, pcm: bytes) -> str:
+        audio = self.np.frombuffer(pcm, dtype=self.np.int16).astype(self.np.float32) / 32768.0
+        segments, _ = self.model.transcribe(
+            audio,
+            language=self.config.language or None,
+            beam_size=1,
+            # Nudges Whisper to spell the wake word the way we expect.
+            initial_prompt=f"{self.config.wake_word.title()}, ",
+            condition_on_previous_text=False,
+        )
+        text = " ".join(s.text.strip() for s in segments).strip()
+        # Whisper's usual hallucinations on silence or noise.
+        if text.lower().strip(" .!") in {"", "you", "thank you", "thanks for watching", "bye"}:
+            return ""
+        return text
+
+
 class Ears:
     """Microphone + Whisper. ``listen()`` returns what was said, as text."""
 
@@ -90,7 +129,6 @@ class Ears:
         try:
             import numpy as np
             import sounddevice as sd
-            from faster_whisper import WhisperModel
         except ImportError as exc:
             raise missing_voice_deps(exc) from exc
 
@@ -99,12 +137,7 @@ class Ears:
         self.on_status = on_status or (lambda msg: None)
         self.frame_len = int(config.sample_rate * FRAME_SECONDS)
         self._queue: queue.Queue[bytes] = queue.Queue()
-
-        self.on_status(f"Loading speech model '{config.whisper_model}'...")
-        compute = "int8" if config.whisper_device in ("auto", "cpu") else "default"
-        self.model = WhisperModel(
-            config.whisper_model, device=config.whisper_device, compute_type=compute
-        )
+        self.transcriber = Transcriber(config, self.on_status)
 
         device = config.input_device
         if device is not None and device.isdigit():
@@ -182,20 +215,7 @@ class Ears:
                 return text
 
     def transcribe(self, pcm: bytes) -> str:
-        audio = self.np.frombuffer(pcm, dtype=self.np.int16).astype(self.np.float32) / 32768.0
-        segments, _ = self.model.transcribe(
-            audio,
-            language=self.config.language or None,
-            beam_size=1,
-            # Nudges Whisper to spell the wake word the way we expect.
-            initial_prompt=f"{self.config.wake_word.title()}, ",
-            condition_on_previous_text=False,
-        )
-        text = " ".join(s.text.strip() for s in segments).strip()
-        # Whisper's usual hallucinations on silence or noise.
-        if text.lower().strip(" .!") in {"", "you", "thank you", "thanks for watching", "bye"}:
-            return ""
-        return text
+        return self.transcriber.transcribe(pcm)
 
     def close(self) -> None:
         self.stream.stop()

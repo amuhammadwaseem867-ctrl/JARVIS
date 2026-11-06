@@ -65,6 +65,7 @@ class HudApp:
         ears_factory: Callable[[Callable[[str], None]], Any] | None = None,
         wake: Any | None = None,
         voice_error: str | None = None,
+        transcriber_factory: Callable[[Callable[[str], None]], Any] | None = None,
     ):
         """
         Args:
@@ -76,6 +77,10 @@ class HudApp:
                 status callback. None means no mic.
             wake: a ``WakeWord`` to strip "Jarvis," from what was heard.
             voice_error: why voice isn't available, shown on the HUD.
+            transcriber_factory: builds Whisper on its own (no microphone)
+                for audio recorded in the browser, e.g. on a phone. Called
+                with a status callback on first use. None means the HUD
+                can't take recorded audio.
         """
         self.brain = brain
         self.mouth = mouth
@@ -83,6 +88,8 @@ class HudApp:
         self.ears: Any | None = None
         self.wake = wake
         self.voice_error = voice_error
+        self.transcriber_factory = transcriber_factory
+        self.transcriber: Any | None = None
         self.speak_replies = mouth is not None
         self.bus = EventBus()
         self.state = "idle"
@@ -111,6 +118,7 @@ class HudApp:
             "history": history_of(self.brain.memory.messages),
             "voice": {
                 "mic": self.ears_factory is not None,
+                "browser_mic": self.transcriber_factory is not None,
                 "speech": self.mouth is not None,
                 "speak_replies": self.speak_replies,
                 "error": self.voice_error,
@@ -150,6 +158,37 @@ class HudApp:
         if self.ears_factory is None:
             raise RuntimeError(self.voice_error or "No microphone available.")
         self._start(self._listen_and_answer)
+
+    def submit_audio(self, pcm: bytes) -> None:
+        """Transcribe audio recorded in the browser, then answer.
+
+        ``pcm`` is 16 kHz mono signed 16-bit little-endian samples. Raises
+        Busy, or RuntimeError if Whisper isn't installed.
+        """
+        if self.transcriber_factory is None and self.transcriber is None:
+            raise RuntimeError(self.voice_error or "Speech recognition isn't available.")
+        if len(pcm) < 3200:  # under 0.1 s
+            raise ValueError("no audio")
+        self._start(self._transcribe_and_answer, pcm[: len(pcm) - len(pcm) % 2])
+
+    def _transcribe_and_answer(self, pcm: bytes) -> None:
+        if self.transcriber is None:
+            self._set_state("loading")
+            try:
+                self.transcriber = self.transcriber_factory(
+                    lambda msg: self._publish(type="status", text=msg)
+                )
+            except Exception as exc:
+                self.transcriber_factory = None
+                self.voice_error = f"Speech recognition unavailable: {exc}"
+                self._publish(type="voice", browser_mic=False, error=self.voice_error)
+                return
+        self._set_state("thinking")
+        heard = self.transcriber.transcribe(pcm)
+        if not heard:
+            self._publish(type="status", text="I didn't catch that. Try again?")
+            return
+        self._handle_heard(heard)
 
     def set_speak_replies(self, on: bool) -> None:
         self.speak_replies = bool(on) and self.mouth is not None
@@ -208,6 +247,9 @@ class HudApp:
         if heard is None:
             self._publish(type="status", text="I didn't hear anything.")
             return
+        self._handle_heard(heard)
+
+    def _handle_heard(self, heard: str) -> None:
         request = self.wake.strip(heard) if self.wake else heard.strip()
         if request:
             self._answer(request)

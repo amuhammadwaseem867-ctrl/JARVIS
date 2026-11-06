@@ -47,6 +47,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--no-browser", action="store_true", help="with --hud: don't open a browser tab"
     )
+    p.add_argument(
+        "--phone",
+        action="store_true",
+        help="HUD + use your phone (same Wi-Fi) as JARVIS's microphone and speaker",
+    )
+    p.add_argument(
+        "--phone-port", type=int, default=8766, help="with --phone: port the phone connects to"
+    )
+    p.add_argument(
+        "--forget-phones", action="store_true", help="unpair every phone paired with --phone, then exit"
+    )
     p.add_argument("--list-voices", action="store_true", help="list text-to-speech voices and exit")
     return p.parse_args(argv)
 
@@ -60,6 +71,12 @@ def main(argv: list[str] | None = None) -> int:
 
             print("\n".join(Mouth(VoiceConfig.from_env()).voices()))
             return 0
+        if args.forget_phones:
+            return forget_phones()
+        if args.phone:
+            return run_hud(
+                port=args.port, open_browser=not args.no_browser, phone_port=args.phone_port
+            )
         if args.voice:
             return run_voice(push_to_talk=args.push_to_talk)
         if args.hud:
@@ -139,15 +156,39 @@ def run_voice(push_to_talk: bool = False) -> int:
     return 0
 
 
-def run_hud(port: int = 8765, open_browser: bool = True) -> int:
+def run_hud(port: int = 8765, open_browser: bool = True, phone_port: int | None = None) -> int:
     from .hud import HudApp, serve
-    from .hud.voice import load_voice
+    from .hud.voice import VOICE_INSTALL, load_voice
 
     voice = load_voice()
-    if voice["voice_error"]:
+    if phone_port is not None:
+        if voice["transcriber_factory"] is None:
+            print(
+                "The phone's mic needs speech recognition on this computer. "
+                f"Install it with:  {VOICE_INSTALL}  (typing from the phone works without it)"
+            )
+        # A computer without a mic is expected here; only mention real problems.
+        voice["voice_error"] = None if voice["transcriber_factory"] else voice["voice_error"]
+    elif voice["voice_error"]:
         print(voice["voice_error"])
-    app = HudApp(Brain(), **voice)
-    return serve(app, port=port, open_browser=open_browser)
+    brain = Brain()
+    app = HudApp(brain, **voice)
+    return serve(
+        app,
+        port=port,
+        open_browser=open_browser,
+        phone_port=phone_port,
+        data_dir=brain.config.data_dir,
+    )
+
+
+def forget_phones() -> int:
+    from .config import BrainConfig
+    from .hud.phone import Pairing
+
+    n = Pairing(BrainConfig.from_env().data_dir / "phone").forget_all()
+    print(f"Unpaired {n} phone{'s' if n != 1 else ''}.")
+    return 0
 
 
 if __name__ == "__main__":

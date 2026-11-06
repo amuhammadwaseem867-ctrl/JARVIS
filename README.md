@@ -130,6 +130,68 @@ time you start the HUD, and requests that don't come from this computer's own
 address are refused, so other websites open in your browser can't send JARVIS
 commands. Terminal and voice mode are unchanged.
 
+## Use your phone as the microphone
+
+No mic on your computer? Your phone can be JARVIS's microphone (and speaker)
+over your home Wi-Fi. JARVIS still runs on the computer; the phone is just a
+remote with a mic.
+
+**One-time setup** (on the computer):
+
+```bash
+pip install -e ".[voice,phone]"
+```
+
+**Every time:**
+
+1. On the computer run `python -m jarvis --phone`. The HUD opens, and the
+   terminal prints a QR code, an address like `https://192.168.1.20:8766/`
+   and a 6-digit code. (The HUD's **Connect phone** button shows them too.)
+2. Put the phone on the **same Wi-Fi** and scan the QR code with its camera.
+   Or open the address in the phone's browser and type the code.
+3. The phone warns *"Your connection is not private"*. That's expected: the
+   certificate was made on your computer, not bought from a company. Tap
+   **Advanced > Proceed** (Chrome) or **Show Details > visit this website**
+   (Safari). You only do this once per computer.
+4. Tap the **mic**, allow microphone access, and talk. It stops by itself when
+   you pause, or tap the mic again. JARVIS answers on the screen and out loud
+   on the phone.
+
+The phone stays paired for 30 days, so next time just open the same address
+(bookmark it or "Add to Home screen").
+
+Good to know:
+
+- **Windows asks to allow Python on the network** the first time. Tick
+  **Private networks** and allow it, or the phone can't connect.
+- The phone records; the computer turns the speech into text with Whisper
+  (`[voice]` extras), so nothing is sent anywhere except your question to
+  Claude, as usual.
+- **Speak on this phone** reads replies on the phone. **Speak on computer**
+  reads them on the computer's speakers instead (or as well).
+- Typing on the phone works too, and risky actions ask on the phone.
+- If the phone can't open the page, check both are on the same Wi-Fi (not a
+  guest network) and the computer's address is right. On a computer with
+  several networks you can set it: `JARVIS_LAN_IP=192.168.1.20`.
+
+**Privacy.** Phone mode serves the HUD on your local network over HTTPS. A
+device must pair first with the code or QR code shown on your computer; after
+5 wrong codes, typing codes is switched off until you restart JARVIS. Paired
+phones get a long random key, stored on the computer only as a hash
+(`~/.jarvis/phone/devices.json`). To unpair every phone:
+`python -m jarvis --forget-phones`. Without `--phone`, nothing is reachable
+from the network.
+
+| Option | What it does |
+|---|---|
+| `--phone-port 9001` | Port the phone connects to (default 8766) |
+| `--no-browser` | Don't open the HUD on the computer |
+
+**Can't the phone reach it from outside the house?** Not in this version: it's
+Wi-Fi only on purpose, since JARVIS can open apps and change files on your
+computer. (JARVIS can't run on Vercel or similar hosting either: it has to run
+on your computer to control it.)
+
 ## Skills
 
 Out of the box JARVIS can do more than talk:
