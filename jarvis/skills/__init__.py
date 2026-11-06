@@ -9,7 +9,7 @@ Each skill group lives in its own module and is switched on or off with the
 
 | group     | tools                                                         |
 |-----------|---------------------------------------------------------------|
-| web       | web_search, web_fetch (run by Anthropic, nothing to install)  |
+| web       | web_search, web_fetch (Anthropic's with Claude, DuckDuckGo otherwise) |
 | weather   | get_weather (Open-Meteo, no API key)                          |
 | apps      | open_website, open_app                                        |
 | system    | get_system_info, set_volume, mute                             |
@@ -80,14 +80,23 @@ class SkillsConfig:
         return cfg
 
 
-def register_skills(registry: ToolRegistry, config: SkillsConfig | None = None) -> None:
-    """Add every enabled skill group's tools to ``registry``."""
+def register_skills(
+    registry: ToolRegistry, config: SkillsConfig | None = None, server_web: bool = True
+) -> None:
+    """Add every enabled skill group's tools to ``registry``.
+
+    ``server_web`` uses Anthropic's own web search (Claude only). Other
+    providers get JARVIS's built-in DuckDuckGo search and page reader instead.
+    """
     from . import apps, files, system, weather, web
 
     config = config or SkillsConfig.from_env()
     modules = {"web": web, "weather": weather, "apps": apps, "system": system, "files": files}
     for name in config.enabled:
-        modules[name].register(registry, config)
+        if name == "web":
+            web.register(registry, config, server=server_web)
+        else:
+            modules[name].register(registry, config)
 
 
 __all__ = ["ALL_SKILLS", "SkillsConfig", "register_skills"]
