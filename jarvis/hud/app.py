@@ -20,7 +20,7 @@ import time
 from typing import Any, Callable
 
 from ..brain import Brain, ToolCall
-from ..chat import FatalError, ask
+from ..chat import FatalError, agent_command, ask
 
 log = logging.getLogger("jarvis.hud")
 
@@ -224,6 +224,10 @@ class HudApp:
     def _answer(self, text: str) -> None:
         self._publish(type="message", role="user", text=text)
         self._set_state("thinking")
+        shown = agent_command(self.brain, text) if text.startswith("/") else None
+        if shown is not None:  # /agents, /agent NAME TASK, /status
+            self._publish(type="message", role="assistant", text=shown)
+            return
         try:
             answer = ask(self.brain, text)
         except FatalError as exc:

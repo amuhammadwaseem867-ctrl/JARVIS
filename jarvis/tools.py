@@ -31,7 +31,7 @@ import math
 import operator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .memory import FactStore
@@ -74,6 +74,9 @@ class ToolRegistry:
         self.server_tools: list[dict[str, Any]] = []
         # Asks the user a yes/no question. Set by the front end.
         self.confirm = confirm
+        # How many confirmation questions are waiting for an answer right now.
+        # The supervisor stops an agent's clock while this is above zero.
+        self.waiting_on_user = 0
 
     def ask_user(self, question: str) -> None:
         """Ask the user to approve a risky action. Raises ``Declined`` on no."""
@@ -81,7 +84,12 @@ class ToolRegistry:
             raise Declined(
                 "This needs the user's confirmation, but there's no way to ask them here."
             )
-        if not self.confirm(question):
+        self.waiting_on_user += 1
+        try:
+            approved = self.confirm(question)
+        finally:
+            self.waiting_on_user -= 1
+        if not approved:
             raise Declined("The user declined.")
 
     def tool(
@@ -121,12 +129,28 @@ class ToolRegistry:
     def names(self) -> list[str]:
         return list(self._tools) + [t["name"] for t in self.server_tools]
 
-    def schemas(self) -> list[dict[str, Any]]:
-        # Sorted so the tool list is byte-identical every request (cache-friendly).
-        return [self._tools[n].schema() for n in sorted(self._tools)] + self.server_tools
+    def schemas(self, only: Iterable[str] | None = None) -> list[dict[str, Any]]:
+        """Tool definitions to send to the model.
 
-    def run(self, name: str, args: dict[str, Any]) -> tuple[str, bool]:
-        """Run a tool. Returns ``(result_text, is_error)``."""
+        ``only`` limits them to those names (an agent sends just its own few
+        tools, which keeps every request small). Unknown names are skipped.
+        """
+        keep = None if only is None else set(only)
+        # Sorted so the tool list is byte-identical every request (cache-friendly).
+        return [
+            self._tools[n].schema() for n in sorted(self._tools) if keep is None or n in keep
+        ] + [t for t in self.server_tools if keep is None or t["name"] in keep]
+
+    def run(
+        self, name: str, args: dict[str, Any], allowed: Iterable[str] | None = None
+    ) -> tuple[str, bool]:
+        """Run a tool. Returns ``(result_text, is_error)``.
+
+        ``allowed`` restricts which tools may run (an agent may only use the
+        tools listed in its file, even if the model asks for another).
+        """
+        if allowed is not None and name not in set(allowed):
+            return f"Tool '{name}' isn't available here.", True
         tool = self._tools.get(name)
         if tool is None:
             return f"Unknown tool: {name}", True

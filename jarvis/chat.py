@@ -3,6 +3,8 @@ errors into something JARVIS can say."""
 
 from __future__ import annotations
 
+import logging
+
 from . import providers
 from .brain import Brain
 
@@ -10,6 +12,9 @@ FREE_HINT = (
     "To use a free model instead, get a Groq key at https://console.groq.com/keys "
     "and set GROQ_API_KEY (see the README)."
 )
+
+
+log = logging.getLogger("jarvis.chat")
 
 
 class FatalError(Exception):
@@ -35,9 +40,13 @@ def ask(brain: Brain, text: str) -> str:
         return f"The {exc.provider} API returned an error ({exc.status}): {exc.message}"
     except Exception as exc:
         reply = _anthropic_error(exc)
-        if reply is None:
-            raise
-        return reply
+        if reply is not None:
+            return reply
+        # Anything else is a bug somewhere inside JARVIS. Log it and keep
+        # running: one bad request must never shut JARVIS down.
+        log.exception("unexpected error while answering %r", text)
+        return f"Something went wrong inside me ({type(exc).__name__}: {exc}). I'm still running, so try again."
+
 
 
 def _anthropic_error(exc: Exception) -> str | None:
@@ -59,4 +68,50 @@ def _anthropic_error(exc: Exception) -> str | None:
                 "Your Anthropic credit balance is too low to use Claude. " + FREE_HINT
             ) from exc
         return f"The API returned an error ({exc.status_code}): {exc.message}"
+    return None
+
+
+AGENT_COMMANDS_HELP = "/agents (list specialists), /agent NAME TASK (ask one), /status (health)"
+
+
+def agent_command(brain: Brain, text: str) -> str | None:
+    """Handle ``/agents``, ``/agent NAME TASK`` and ``/status``.
+
+    Returns the text to show, or None if ``text`` isn't one of these commands.
+    """
+    parts = text.strip().split(maxsplit=2)
+    if not parts:
+        return None
+    cmd = parts[0].lower()
+    if cmd == "/agents":
+        lines = [f"{len(brain.agents)} agents:"]
+        for spec in brain.agents.all():
+            missing = [t for t in spec.tools if t not in brain.agent_tools(spec)]
+            note = f"  (tools switched off: {', '.join(missing)})" if missing else ""
+            lines.append(f"  {spec.name:<16} {spec.description}{note}")
+        for path, error in brain.agents.errors:
+            lines.append(f"  ! {path.name}: {error}")
+        return "\n".join(lines)
+    if cmd == "/agent":
+        if len(parts) < 3:
+            return "Usage: /agent NAME TASK, e.g. /agent translator say good morning in Urdu"
+        result = brain.run_agent(parts[1], parts[2])
+        if result.ok:
+            return f"[{result.agent}] {result.text}"
+        return f"The {result.agent} agent couldn't do that: {result.error}"
+    if cmd == "/status":
+        s = brain.status()
+        lines = [
+            f"Model: {s['provider']}: {s['model']}",
+            f"Tools: {s['tools']}   Agents: {s['agents']} "
+            f"(in memory: {', '.join(s['agents_loaded']) or 'none'})",
+        ]
+        for problem in s["agent_file_errors"]:
+            lines.append(f"Broken agent file: {problem}")
+        for job, h in s["jobs"].items():
+            err = f", last error: {h['last_error']}" if h["last_error"] else ""
+            lines.append(f"  {job:<22} {h['state']}, {h['runs']} runs, {h['failed']} failed{err}")
+        if not s["jobs"]:
+            lines.append("No agents have run yet.")
+        return "\n".join(lines)
     return None
