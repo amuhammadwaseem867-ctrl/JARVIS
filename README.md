@@ -284,6 +284,12 @@ timeout: 60          # seconds
 You are JARVIS's cricket specialist. Search for the latest score and ...
 ```
 
+**Tiers.** An agent's `tier` sets how long its answers may be (small 1024
+tokens, medium 2048, large 4096), because free tiers count the requested
+length against their per-minute limits. You can also give a tier its own
+model, e.g. `JARVIS_GROQ_SMALL_MODEL=llama-3.1-8b-instant` (check the model
+still exists on your account first).
+
 Tool names are the ones listed under [Skills](#skills) plus `get_current_time`,
 `calculate`, `remember`, `recall` and `forget`. A broken file is skipped and
 shown in `/agents` and `/status`.
@@ -363,7 +369,36 @@ next one and keeps going, and leaves the tired one alone for a minute. The
 startup line shows the order, e.g. `groq: openai/gpt-oss-120b; backup:
 gemini, openrouter`. `JARVIS_FALLBACK` changes it: `auto` (default, every free
 provider with a key), a list like `cerebras,gemini`, or `none`. Claude never
-switches to another service by itself.
+switches to another service by itself. If [Ollama](https://ollama.com) is
+running on your computer, `auto` adds it as the very last backup (no limits,
+works without internet, but slow on most PCs); `JARVIS_OLLAMA=0` stops that.
+
+**Rate-limit budget.** JARVIS counts what it has used with each free provider
+(requests and tokens per minute and per day) and checks before every call. A
+provider that is full is skipped *before* anything is sent, so on a slow
+connection you don't wait for a "too many requests" error first. If room frees
+up within a few seconds (`JARVIS_MAX_WAIT`, default 8) it just waits. When a
+provider says "retry after 30s", JARVIS rests it for exactly that long. Today's
+counts are saved in `~/.jarvis/budget.json`, so a restart doesn't forget them,
+and `/status` shows them. At most 2 model calls run at the same time
+(`JARVIS_MAX_PARALLEL`). Brief network drops are retried twice.
+
+The built-in limits are rough, safe-side guesses for free accounts and change
+often. If your console shows different numbers, put them in
+`~/.jarvis/limits.json` (`0` means no limit):
+
+```json
+{"groq": {"rpm": 30, "tpm": 8000, "rpd": 1000, "tpd": 200000},
+ "gemini": {"rpm": 10, "rpd": 250}}
+```
+
+or set e.g. `JARVIS_LIMITS_GROQ="rpm=30,tpm=8000"`.
+
+**Cache.** Weather (10 minutes), web searches (30 minutes) and web pages (1
+hour) are saved in `~/.jarvis/cache.db`, and so are specialist agents' answers
+to the exact same task (an hour if the agent used no tools, never if it
+checked the time, files or the computer). Repeated questions answer instantly
+and cost no quota. `JARVIS_CACHE=0` turns it off.
 
 Good to know:
 
@@ -415,6 +450,12 @@ picks up where it left off after a restart.
 | `GROQ_API_KEY` / `CEREBRAS_API_KEY` / `GEMINI_API_KEY` / `OPENROUTER_API_KEY` / `MISTRAL_API_KEY` / `ANTHROPIC_API_KEY` | | API key for that provider (one is needed, except for Ollama) |
 | `JARVIS_FALLBACK` | `auto` | Backup providers when the main free one hits its limit: `auto`, a list like `cerebras,gemini`, or `none` |
 | `JARVIS_<PROVIDER>_MODEL` | | Model for one provider, e.g. `JARVIS_GROQ_MODEL` |
+| `JARVIS_<PROVIDER>_<TIER>_MODEL` | | Model for one size of agent job, e.g. `JARVIS_GROQ_SMALL_MODEL` |
+| `JARVIS_MAX_PARALLEL` | `2` | Model calls allowed at the same time |
+| `JARVIS_MAX_WAIT` | `8` | Seconds to wait for room on a provider before trying another |
+| `JARVIS_LIMITS_<PROVIDER>` | built-in guesses | Free-tier limits, e.g. `rpm=30,tpm=8000,rpd=1000` |
+| `JARVIS_CACHE` | `1` | `0` turns off the cache |
+| `JARVIS_OLLAMA` | `1` | `0` stops JARVIS looking for Ollama as a last-resort backup |
 | `JARVIS_MODEL` | the provider's default | Model to use |
 | `JARVIS_EFFORT` | `medium` | How hard Claude thinks: `low`, `medium`, `high`, `xhigh`, `max` (Claude only) |
 | `JARVIS_MAX_TOKENS` | `16000` (Claude), `4096` (free) | Max length of one response |

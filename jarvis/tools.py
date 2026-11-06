@@ -77,6 +77,10 @@ class ToolRegistry:
         # How many confirmation questions are waiting for an answer right now.
         # The supervisor stops an agent's clock while this is above zero.
         self.waiting_on_user = 0
+        # Optional result cache (jarvis.cache.Cache) and how long each tool's
+        # results stay fresh, in seconds. Tools not in ``cache_ttl`` are never cached.
+        self.cache: Any = None
+        self.cache_ttl: dict[str, float] = {}
 
     def ask_user(self, question: str) -> None:
         """Ask the user to approve a risky action. Raises ``Declined`` on no."""
@@ -159,15 +163,22 @@ class ToolRegistry:
         missing = [r for r in tool.required if r not in args]
         if missing:
             return f"Missing required argument(s): {', '.join(missing)}", True
+        ttl = self.cache_ttl.get(name, 0) if self.cache is not None else 0
+        key = json.dumps(args, sort_keys=True, ensure_ascii=False, default=str) if ttl else ""
+        if ttl:
+            hit = self.cache.get(f"tool:{name}", key)
+            if hit is not None:
+                return hit, False
         try:
             result = tool.func(**args)
         except Declined as exc:
             return f"Not done: {exc}", True
         except Exception as exc:  # report any tool failure back to Claude
             return f"{type(exc).__name__}: {exc}", True
-        if isinstance(result, str):
-            return result, False
-        return json.dumps(result, ensure_ascii=False, default=str), False
+        text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str)
+        if ttl:
+            self.cache.put(f"tool:{name}", key, text, ttl)
+        return text, False
 
 
 # ---------------------------------------------------------------------------

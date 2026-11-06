@@ -1,7 +1,16 @@
 # Plan: 40–50 specialist agents under JARVIS
 
-Status: **Phase 1 built** (agent files, registry, supervisor, `/agents`,
-`/agent`, `/status`, 8 starter agents). Phases 2-5 are still plans. Written for how JARVIS actually runs today:
+Status: **Phases 1 and 2 built.** Phase 1: agent files, registry, supervisor,
+`/agents`, `/agent`, `/status`, 8 starter agents. Phase 2: rate-limit budget
+(`jarvis/budget.py`), cache (`jarvis/cache.py`), retry-after handling, network
+retries, tiers (output length + optional per-tier model), Ollama as automatic
+last resort, max 2 calls in flight. Phases 3-5 are still plans.
+
+Phase 2 differs from the plan below in two small ways: tiers keep the
+provider order you chose (they change answer length and, if you set it, the
+model) instead of re-ordering providers, and the answer cache covers
+specialist agents only, because answers in the main conversation depend on
+what was said before. Written for how JARVIS actually runs today:
 one Windows PC, slow internet, and free-tier API keys (Groq, Cerebras, Gemini,
 OpenRouter, Mistral) that each have per-minute and per-day limits.
 
