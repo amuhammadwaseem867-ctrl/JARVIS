@@ -20,6 +20,8 @@ voice = [
     "numpy>=1.26",
     "pyttsx3>=2.98",
 ]
+# Phone mode (--phone): HTTPS certificate and the pairing QR code.
+phone = ["cryptography>=42", "segno>=1.6"]
 
 [project.scripts]
 jarvis = "jarvis.__main__:main"

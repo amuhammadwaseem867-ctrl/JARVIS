@@ -79,6 +79,13 @@ def load_voice() -> dict[str, Any]:
         except Exception as exc:  # e.g. no speech engine (espeak) on Linux
             problems.append(f"spoken replies are off ({exc})")
 
+    transcriber_factory = None
+    if all(importlib.util.find_spec(m) for m in ("faster_whisper", "numpy")):
+        def transcriber_factory(status: Callable[[str], None]) -> Any:
+            from ..voice.ears import Transcriber
+
+            return Transcriber(config, on_status=status)
+
     ears_factory = None
     missing = [m for m in ("faster_whisper", "sounddevice", "numpy")
                if importlib.util.find_spec(m) is None]
@@ -98,4 +105,5 @@ def load_voice() -> dict[str, Any]:
         "ears_factory": ears_factory,
         "wake": WakeWord(config.wake_aliases),
         "voice_error": error,
+        "transcriber_factory": transcriber_factory,
     }

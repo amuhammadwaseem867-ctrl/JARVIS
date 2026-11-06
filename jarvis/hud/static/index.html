@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="jarvis-token" content="__JARVIS_TOKEN__">
+  <meta name="jarvis-client" content="__JARVIS_CLIENT__">
   <title>JARVIS HUD</title>
   <link rel="stylesheet" href="/static/hud.css">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
@@ -16,10 +17,13 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">J.A.R.V.I.S.</span>
     </div>
+    <div class="topbar-actions">
+    <button id="phone-btn" class="ghost small" type="button" hidden title="Use your phone's microphone">Connect phone</button>
     <div class="readouts">
       <span class="readout"><span class="label">Model</span> <span id="model">—</span></span>
       <span class="readout"><span class="label">Link</span> <span id="link">offline</span></span>
       <span class="readout clock" id="clock">--:--:--</span>
+    </div>
     </div>
   </header>
 
@@ -83,6 +87,22 @@
     </div>
   </div>
 
+  <div id="phone" class="confirm" hidden>
+    <div class="confirm-card phone-card" role="dialog" aria-labelledby="phone-title">
+      <div class="confirm-eyebrow" id="phone-title">Connect your phone</div>
+      <div class="phone-qr" id="phone-qr"></div>
+      <div class="phone-url" id="phone-url"></div>
+      <div class="phone-code" id="phone-code"></div>
+      <ol>
+        <li>Put your phone on the same Wi-Fi as this computer.</li>
+        <li>Scan the QR code with the camera, or open the address and type the code.</li>
+        <li>The phone warns the connection isn't private: that's expected. Tap <b>Advanced</b>, then <b>Proceed</b> (Chrome) or <b>Show Details</b>, then <b>visit this website</b> (Safari).</li>
+        <li>Tap the mic and allow microphone access.</li>
+      </ol>
+      <div class="confirm-actions"><button id="phone-close" class="solid" type="button">Done</button></div>
+    </div>
+  </div>
+
   <footer class="dock">
     <form id="composer" class="composer" autocomplete="off">
       <button id="mic" class="mic" type="button" title="Talk to JARVIS" aria-label="Talk to JARVIS">
@@ -96,6 +116,11 @@
         <input type="checkbox" id="speak">
         <span class="switch" aria-hidden="true"></span>
         <span>Speak replies</span>
+      </label>
+      <label class="toggle" id="speak-here-wrap" title="Read replies out loud on this phone" hidden>
+        <input type="checkbox" id="speak-here">
+        <span class="switch" aria-hidden="true"></span>
+        <span>Speak on this phone</span>
       </label>
       <span class="voice-note" id="voice-note"></span>
     </div>
