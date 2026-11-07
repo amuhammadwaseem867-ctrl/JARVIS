@@ -101,7 +101,7 @@ class PhoneServer(HudServer):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.load_cert_chain(cert, key)
-        # Handshake in the request's own thread, so a slow phone can't hold up others.
+        # Defer the TLS handshake to the request thread.
         self.socket = ctx.wrap_socket(self.socket, server_side=True, do_handshake_on_connect=False)
 
     @property
@@ -116,8 +116,7 @@ class PhoneServer(HudServer):
         return phone.is_ip_host(host)
 
     def handle_error(self, request: Any, client_address: Any) -> None:
-        # Phones drop the connection while showing the certificate warning;
-        # that's expected, not worth a traceback.
+        # Expected while a phone shows the self-signed certificate warning.
         log.debug("phone connection from %s failed", client_address, exc_info=True)
 
 
@@ -128,7 +127,6 @@ class HudHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: Any) -> None:
         log.debug("%s " + fmt, self.address_string(), *args)
 
-    # ------------------------------------------------------------- helpers
 
     def _send(self, status: int, body: bytes, ctype: str = "application/json") -> None:
         self.send_response(status)
@@ -189,7 +187,6 @@ class HudHandler(BaseHTTPRequestHandler):
     def _token_ok(self, given: str | None) -> bool:
         return bool(given) and secrets.compare_digest(given, self.server.token)
 
-    # ---------------------------------------------------------------- GET
 
     def do_GET(self) -> None:
         if not self._host_ok():
@@ -261,7 +258,6 @@ class HudHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"data: " + json.dumps(event).encode() + b"\n\n")
         self.wfile.flush()
 
-    # --------------------------------------------------------------- POST
 
     def _length(self, limit: int) -> int | None:
         try:

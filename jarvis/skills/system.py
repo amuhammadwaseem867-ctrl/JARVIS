@@ -64,8 +64,6 @@ def system_info() -> dict[str, Any]:
     return info
 
 
-# ----------------------------------------------------------------- volume
-
 def _run(cmd: list[str]) -> str:
     return subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=10).stdout
 

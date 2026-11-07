@@ -103,7 +103,6 @@ class HudApp:
         brain.on_tool_call = self._on_tool
         brain.tools.confirm = self.confirm
 
-    # --------------------------------------------------------------- status
 
     def snapshot(self) -> dict[str, Any]:
         """Everything a freshly opened page needs to draw itself."""
@@ -144,7 +143,6 @@ class HudApp:
             at=time.time(),
         )
 
-    # ------------------------------------------------------------- requests
 
     def submit_text(self, text: str) -> None:
         """Answer a typed message in the background. Raises Busy."""
@@ -277,7 +275,6 @@ class HudApp:
             if self.ears is not None:
                 self.ears.flush()  # don't hear ourselves
 
-    # ------------------------------------------------------- confirmations
 
     def confirm(self, question: str) -> bool:
         """Ask the user yes/no on the HUD. Blocks the tool until answered.

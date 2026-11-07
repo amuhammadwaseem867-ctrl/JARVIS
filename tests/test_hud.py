@@ -49,9 +49,6 @@ def wait_idle(app: HudApp, q: queue.Queue) -> list[dict]:
     return seen
 
 
-# ----------------------------------------------------------------- the app
-
-
 def test_text_message_flow(tmp_path):
     app = make_app(
         tmp_path,
@@ -235,9 +232,6 @@ def test_history_skips_tool_turns():
         {"role": "assistant", "content": [{"type": "text", "text": "Hello."}]},
     ]
     assert history_of(msgs) == [{"role": "user", "text": "hi"}, {"role": "assistant", "text": "Hello."}]
-
-
-# -------------------------------------------------------------- the server
 
 
 @pytest.fixture

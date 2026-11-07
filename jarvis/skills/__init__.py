@@ -53,7 +53,7 @@ class SkillsConfig:
     trusted_apps: tuple[str, ...] = DEFAULT_TRUSTED_APPS
     # File tools can only touch paths inside this folder.
     files_root: Path = field(default_factory=Path.home)
-    # Web search: how many searches Claude may run per request.
+    # Maximum web searches per request.
     max_web_searches: int = 5
 
     @classmethod

@@ -82,9 +82,6 @@ def test_segmenter_max_length():
     assert out[-1] == [b"x"] * 5
 
 
-# ------------------------------------------------------------- the voice loop
-
-
 class FakeEars:
     def __init__(self, *heard):
         self.heard = list(heard)

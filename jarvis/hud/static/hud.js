@@ -25,13 +25,11 @@
   let pending = [];          // yes/no questions waiting for the user
   let typingEl = null;
 
-  // ------------------------------------------------------------ clock
 
   const clock = $("clock");
   const tick = () => { clock.textContent = new Date().toLocaleTimeString([], { hour12: false }); };
   tick(); setInterval(tick, 1000);
 
-  // ------------------------------------------------------------ state
 
   function setState(next) {
     state = next;
@@ -47,7 +45,6 @@
 
   function status(msg) { statusLine.textContent = msg || ""; }
 
-  // ------------------------------------------------------------ comms
 
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -102,7 +99,6 @@
     log.innerHTML = '<p class="empty" id="empty">New session. How can I help?</p>';
   }
 
-  // ------------------------------------------------------------ systems
 
   const LABEL_OF = {
     web_search: "Web search", web_fetch: "Read web page", get_weather: "Weather",
@@ -137,7 +133,6 @@
     }
   }
 
-  // ------------------------------------------------------------ confirm
 
   function showConfirm() {
     const q = pending[0];
@@ -158,7 +153,6 @@
     if (!confirmBox.hidden && e.key === "Escape") answerConfirm(false);
   });
 
-  // ------------------------------------------------------------ voice
 
   // Which mic the button uses: the computer's ("server"), this device's
   // ("browser", recorded here and transcribed on the computer), or none.
@@ -184,7 +178,6 @@
 
   speak.addEventListener("change", () => post("/api/voice", { speak_replies: speak.checked }));
 
-  // ------------------------------------------------- speaking on this phone
 
   const speakHere = $("speak-here"), speakHereWrap = $("speak-here-wrap");
   const canSpeakHere = "speechSynthesis" in window;
@@ -228,11 +221,8 @@
     speechSynthesis.speak(new SpeechSynthesisUtterance(""));
   }
 
-  // ------------------------------------------- recording in the browser
-  //
-  // Records from this device's microphone, stops by itself after a short
-  // pause (or when the mic is tapped again), and uploads 16 kHz 16-bit mono
-  // audio for the computer's Whisper to transcribe.
+  // Browser recording: stops after a short pause (or a second tap) and
+  // uploads 16 kHz 16-bit mono PCM for transcription on the host.
 
   const RATE = 16000;
   const recorder = {
@@ -254,7 +244,7 @@
       this.startedAt = performance.now(); this.quietSince = this.startedAt;
       this.node.onaudioprocess = (e) => this.onAudio(e.inputBuffer.getChannelData(0));
       src.connect(this.node);
-      this.node.connect(this.ctx.destination);  // Chrome only runs connected nodes; output is silent
+      this.node.connect(this.ctx.destination);  // Chrome only processes connected nodes
       this.src = src;
       this.active = true;
     },
@@ -295,7 +285,7 @@
     chunks.forEach((c) => { all.set(c, o); o += c.length; });
     const ratio = rate / RATE;
     const out = new Int16Array(Math.floor(n / ratio));
-    for (let i = 0; i < out.length; i++) {  // average each window: cheap low-pass + resample
+    for (let i = 0; i < out.length; i++) {  // box-filter downsample
       const a = Math.floor(i * ratio), b = Math.max(a + 1, Math.floor((i + 1) * ratio));
       let s = 0;
       for (let j = a; j < b && j < n; j++) s += all[j];
@@ -344,7 +334,6 @@
     }
   }
 
-  // ------------------------------------------------------- connect phone
 
   const phoneBox = $("phone"), phoneBtn = $("phone-btn");
   async function loadPhone() {
@@ -363,7 +352,6 @@
   $("phone-close").addEventListener("click", () => { phoneBox.hidden = true; });
   document.addEventListener("keydown", (e) => { if (!phoneBox.hidden && e.key === "Escape") phoneBox.hidden = true; });
 
-  // ------------------------------------------------------------ server
 
   async function post(path, body = {}) {
     try {
@@ -429,7 +417,6 @@
     };
   }
 
-  // ------------------------------------------------------------ input
 
   $("composer").addEventListener("submit", async (e) => {
     e.preventDefault();

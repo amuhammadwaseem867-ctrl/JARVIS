@@ -46,8 +46,7 @@ class Reply:
     text: str
     tool_calls: list[ToolCall] = field(default_factory=list)
     stop_reason: str | None = None
-    # Model that actually answered (differs from the configured one if a
-    # fallback model stepped in after a refusal).
+    # Model that produced the reply; differs from the configured one after a fallback.
     model: str | None = None
     refused: bool = False
 
@@ -86,7 +85,6 @@ class Brain:
         register_builtin_tools(self.tools, self.facts)
         register_skills(self.tools, skills or SkillsConfig.from_env())
 
-    # ------------------------------------------------------------------ API
 
     def think(self, user_input: str) -> Reply:
         """Handle one user message and return JARVIS's reply."""
@@ -112,7 +110,7 @@ class Brain:
                 self.memory.add_assistant(response.content)
                 for block in response.content:
                     if block.type == "server_tool_use":
-                        # Web search / fetch: Anthropic already ran it.
+                        # Server-side tool, already executed by the API.
                         call = ToolCall(block.name, block.input, "(run by Anthropic)", False)
                         tool_calls.append(call)
                         if self.on_tool_call:
@@ -168,7 +166,6 @@ class Brain:
         """Forget the current conversation (long-term facts are kept)."""
         self.memory.clear()
 
-    # ------------------------------------------------------------ internals
 
     def _call_claude(self) -> Any:
         params: dict[str, Any] = {

@@ -38,9 +38,6 @@ class FakeTranscriber:
 SECOND = b"\x01\x00" * 16000  # one second of (very quiet) 16 kHz audio
 
 
-# ---------------------------------------------------------------- pairing
-
-
 def test_pairing_code_key_and_lockout(tmp_path):
     p = phone.Pairing(tmp_path)
     assert len(p.code) == 6 and p.code.isdigit()
@@ -98,9 +95,6 @@ def test_lan_ip_override(monkeypatch):
     assert phone.lan_ip() == "192.168.7.7"
 
 
-# ------------------------------------------------------- recorded audio
-
-
 def test_audio_is_transcribed_and_answered(tmp_path):
     whisper, mouth, statuses = FakeTranscriber("Jarvis, say hi"), FakeMouth(), []
 
@@ -137,9 +131,6 @@ def test_audio_nothing_heard_or_unavailable(tmp_path):
     plain = make_app(tmp_path / "b", voice_error="no whisper")
     with pytest.raises(RuntimeError, match="no whisper"):
         plain.submit_audio(SECOND)
-
-
-# ---------------------------------------------------------- phone server
 
 
 @pytest.fixture
