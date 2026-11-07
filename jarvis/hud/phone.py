@@ -67,9 +67,6 @@ def is_ip_host(host: str) -> bool:
     return True
 
 
-# ------------------------------------------------------------- certificate
-
-
 def ensure_certificate(folder: Path, ip: str) -> tuple[Path, Path]:
     """A self-signed certificate for ``ip``, made once and reused.
 
@@ -127,9 +124,6 @@ def ensure_certificate(folder: Path, ip: str) -> tuple[Path, Path]:
         pass
     cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
     return cert_path, key_path
-
-
-# ---------------------------------------------------------------- pairing
 
 
 def _hash(sid: str) -> str:
@@ -205,9 +199,6 @@ class Pairing:
 
     def pair_url(self, base: str) -> str:
         return f"{base}pair?key={self.key}"
-
-
-# --------------------------------------------------------------------- QR
 
 
 def qr_svg(url: str) -> str | None:

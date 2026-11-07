@@ -19,8 +19,6 @@ def registry_with(*skills, confirm=None, **cfg):
     return reg
 
 
-# ------------------------------------------------------------------ config
-
 def test_all_skills_register_by_default(tmp_path, monkeypatch):
     monkeypatch.delenv("JARVIS_SKILLS", raising=False)
     reg = registry_with(*SkillsConfig.from_env().enabled, files_root=tmp_path)
@@ -75,8 +73,6 @@ def test_server_tool_use_is_reported(tmp_path):
     assert [c.name for c in seen] == ["web_search"]
 
 
-# ----------------------------------------------------------- confirmation
-
 def test_risky_action_is_declined_without_a_way_to_ask(tmp_path):
     (tmp_path / "a.txt").write_text("x")
     reg = registry_with("files", files_root=tmp_path)
@@ -94,8 +90,6 @@ def test_user_can_decline(tmp_path):
     assert asked and "a.txt" in asked[0]
     assert (tmp_path / "a.txt").exists()
 
-
-# ------------------------------------------------------------------ files
 
 @pytest.fixture
 def files(tmp_path, monkeypatch):
@@ -153,8 +147,6 @@ def test_move_and_delete_ask_first(files):
     assert err and "isn't empty" in result
 
 
-# ---------------------------------------------------------------- weather
-
 def fake_open_meteo(url, params):
     if "geocoding" in url:
         if params["name"] == "Atlantis":
@@ -186,8 +178,6 @@ def test_weather():
     with pytest.raises(ValueError, match="home location"):
         weather.get_weather("", 1, fetch=fake_open_meteo)
 
-
-# ------------------------------------------------------------------- apps
 
 def test_open_website(monkeypatch):
     opened = []
@@ -229,8 +219,6 @@ def test_launch_command(platform, name, expected):
     assert apps.launch_command(name, platform) == expected
 
 
-# ----------------------------------------------------------------- system
-
 def test_system_info_has_basics():
     info = system.system_info()
     assert info["os"] and info["cpu_cores"] and "free of" in info["disk"]
@@ -249,8 +237,6 @@ def test_volume_commands(monkeypatch):
         ["osascript", "-e", "set volume output volume 30"],
     ]
 
-
-# ------------------------------------------------------------ voice confirm
 
 class Ears:
     def __init__(self, *heard):

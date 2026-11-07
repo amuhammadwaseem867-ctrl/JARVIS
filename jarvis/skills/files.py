@@ -61,7 +61,6 @@ class Files:
     def show(self, p: Path) -> str:
         return "~" if p == self.root else str(p.relative_to(self.root))
 
-    # ------------------------------------------------------------ reading
 
     def list(self, folder: str) -> dict[str, Any]:
         d = self.path(folder)
@@ -116,7 +115,6 @@ class Files:
             text += f"\n\n[cut off: only the first {MAX_READ_BYTES // 1000} KB are shown]"
         return text
 
-    # ------------------------------------------------------------ changing
 
     def write(self, file: str, content: str, append: bool) -> str:
         p = self.path(file)

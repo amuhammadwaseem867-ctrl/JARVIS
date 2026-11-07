@@ -69,10 +69,9 @@ class Tool:
 class ToolRegistry:
     def __init__(self, confirm: Confirmer | None = None) -> None:
         self._tools: dict[str, Tool] = {}
-        # Anthropic-hosted tools (web search, web fetch). Claude runs these
-        # itself; we only declare them.
+        # Server-side tools (web search, web fetch): declared here, executed by the API.
         self.server_tools: list[dict[str, Any]] = []
-        # Asks the user a yes/no question. Set by the front end.
+        # Yes/no prompt callback, provided by the front end.
         self.confirm = confirm
 
     def ask_user(self, question: str) -> None:
@@ -122,7 +121,7 @@ class ToolRegistry:
         return list(self._tools) + [t["name"] for t in self.server_tools]
 
     def schemas(self) -> list[dict[str, Any]]:
-        # Sorted so the tool list is byte-identical every request (cache-friendly).
+        # Stable ordering keeps the prompt cache valid across requests.
         return [self._tools[n].schema() for n in sorted(self._tools)] + self.server_tools
 
     def run(self, name: str, args: dict[str, Any]) -> tuple[str, bool]:
@@ -139,16 +138,12 @@ class ToolRegistry:
             result = tool.func(**args)
         except Declined as exc:
             return f"Not done: {exc}", True
-        except Exception as exc:  # report any tool failure back to Claude
+        except Exception as exc:  # failures are returned to the model as errors
             return f"{type(exc).__name__}: {exc}", True
         if isinstance(result, str):
             return result, False
         return json.dumps(result, ensure_ascii=False, default=str), False
 
-
-# ---------------------------------------------------------------------------
-# Built-in tools
-# ---------------------------------------------------------------------------
 
 _OPS: dict[type, Callable[..., Any]] = {
     ast.Add: operator.add,

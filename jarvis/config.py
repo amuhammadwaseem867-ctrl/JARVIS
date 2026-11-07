@@ -38,13 +38,12 @@ class BrainConfig:
     """
 
     model: str = "claude-opus-5-5"
-    # low | medium | high | xhigh | max. Claude Opus 5.5 defaults to medium;
-    # we set it explicitly so changing models doesn't silently change depth.
+    # One of: low, medium, high, xhigh, max.
     effort: str = "medium"
     max_tokens: int = 16000
-    # Safety guard against a runaway tool loop within one user turn.
+    # Upper bound on tool round-trips per user turn.
     max_tool_rounds: int = 20
-    # Re-run a declined request on Anthropic's recommended fallback model.
+    # Retry declined requests on the fallback model.
     use_fallbacks: bool = True
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     data_dir: Path = field(default_factory=_data_dir)

@@ -1,4 +1,4 @@
-"""JARVIS: a personal assistant powered by Claude."""
+"""JARVIS: a personal desktop assistant."""
 
 from .brain import Brain, Reply, ToolCall
 from .config import BrainConfig
