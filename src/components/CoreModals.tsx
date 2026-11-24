@@ -1590,13 +1590,8 @@ export const SettingsModal = ({
                     }
                     className="w-full bg-[#111621] border border-white/10 rounded-xl px-4 py-2.5 text-[13px] text-white focus:outline-none focus:border-cyan-400/40"
                   >
-                    <option value="gemini-3.1-flash-live-preview">
-                      gemini-3.1-flash-live-preview
-                    </option>
-                    <option value="gemini-2.5-flash-native-audio-preview-09-2025">
-                      gemini-2.5-flash-native-audio-preview-09-2025
-                    </option>
-                    <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp</option>
+                    <option value="gemini-3.8-live">gemini-3.8-live (recommended)</option>
+                    <option value="gemini-3.8-live-extended-thinking">gemini-3.8-live-extended-thinking (smarter, slower)</option>
                   </select>
                 </div>
 

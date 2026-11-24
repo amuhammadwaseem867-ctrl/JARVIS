@@ -10,6 +10,14 @@ import { safeExternalUrl } from "../security/session";
 
 let primedContext: AudioContext | null = null;
 
+export const DEFAULT_LIVE_MODEL = "gemini-3.8-live";
+const LIVE_MODELS = new Set(["gemini-3.8-live", "gemini-3.8-live-extended-thinking"]);
+
+/** Older Live models were shut down by Google (Nov 2026); always use a current one. */
+export function currentLiveModel(chosen?: string): string {
+  return chosen && LIVE_MODELS.has(chosen) ? chosen : DEFAULT_LIVE_MODEL;
+}
+
 /**
  * Phones (iPhone above all) only allow sound that starts inside a tap. Call
  * this synchronously in the click handler, before any await, so the audio
@@ -128,10 +136,7 @@ export class AIRALiveService {
 
     try {
       this.callbacks.onStatusChange("CONNECTING...");
-      // Using gemini-2.0-flash-exp as it is often more stable for Multimodal Live in current environments
-      // even if the skill mentions 3.1. We'll try 3.1 first if the user insists, but Network error 
-      // usually means the model is not found.
-      const modelName = this.modelIdOverride || "gemini-3.1-flash-live-preview";
+      const modelName = currentLiveModel(this.modelIdOverride);
       console.log(`Connecting to Live API with model: ${modelName}`);
       
       this.session = await this.ai.live.connect({
@@ -466,18 +471,22 @@ export class AIRALiveService {
               }
             }
           },
-          onclose: () => {
+          onclose: (ev: any) => {
+            const reason = String(ev?.reason || "").trim();
+            if (reason) this.callbacks.onSystemEvent?.("GEMINI", `Connection closed: ${reason.slice(0, 200)}`);
             this.callbacks.onStatusChange("DISCONNECTED");
             this.stopMic();
           },
           onerror: (err) => {
             console.error("Live session error:", err);
+            this.callbacks.onSystemEvent?.("GEMINI", `Error: ${String((err as any)?.message || err).slice(0, 200)}`);
             this.callbacks.onStatusChange("ERROR");
           },
         },
       });
     } catch (error) {
       console.error("Connection failed:", error);
+      this.callbacks.onSystemEvent?.("GEMINI", `Could not connect: ${String((error as any)?.message || error).slice(0, 200)}`);
       this.callbacks.onStatusChange("FAILED");
     }
   }
