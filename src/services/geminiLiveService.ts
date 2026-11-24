@@ -177,7 +177,7 @@ export class AIRALiveService {
                     mute: { type: Type.BOOLEAN, description: "Mute/unmute when action is volume." },
                     text: { type: Type.STRING, description: "Text for type_text or clipboard_set." },
                     pressEnter: { type: Type.BOOLEAN, description: "Whether to press Enter after type_text." },
-                    keys: { type: Type.STRING, description: "Hotkey combo like 'cmd+c' or 'enter' when action is hotkey." },
+                    keys: { type: Type.STRING, description: "Hotkey combo like 'cmd+c' (Mac) or 'ctrl+c' (Windows), or 'enter', when action is hotkey." },
                     title: { type: Type.STRING, description: "Notification title." },
                     message: { type: Type.STRING, description: "Notification message." },
                     preset: { type: Type.STRING, enum: ["date", "uptime", "disk_usage", "os_version", "battery", "wifi_name", "top_processes"], description: "Read-only command preset when action is run_command." },
