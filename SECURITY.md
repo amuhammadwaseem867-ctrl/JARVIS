@@ -25,6 +25,10 @@ The original code was read in full before anything was run. It was never execute
 | 16 | Low | **Fabricated results:** fake "synthetic" news returned as success; accepted calls given a made-up 03:45 duration. | Honest errors; unknown durations left empty. |
 | 17 | Low | Data file and folder world-readable; no audit trail; stack traces returned to the browser. | `0600`/`0700` permissions, atomic writes, JSON audit log (typed text redacted), generic error messages, CSP and security headers. |
 
+## Full Control mode (opt-in)
+
+At the owner's request, `ULTRON_FULL_CONTROL=1` re-enables shell commands, code-runner apps, all shortcuts and whole-home file access, and skips approval prompts. Kept even in this mode: loopback-only binding (enforced: the server exits if exposed), session token, Host/Origin checks, keys hidden from the browser, audit log, and a visible on-screen badge. Prompt injection can then lead to command execution; that risk is accepted by the owner.
+
 ## Remaining risks (be aware)
 
 * Approving an action means it runs. Read the dialog; it shows exactly what will be typed, clicked or sent.

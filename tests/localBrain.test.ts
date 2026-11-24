@@ -31,3 +31,7 @@ test("picks an installed Ollama model", () => {
   assert.equal(pickModel(["llama3.2:latest", "qwen2.5:7b"], "llama3.2"), "llama3.2:latest");
   assert.equal(pickModel(["qwen2.5:7b"], "llama3.2"), "qwen2.5:7b");
 });
+
+test("run <command> maps to run_shell", () => {
+  assert.deepEqual(parseIntent("run ls -la ~/Desktop")!.action, { action: "run_shell", command: "ls -la ~/Desktop" });
+});

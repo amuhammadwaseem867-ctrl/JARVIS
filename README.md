@@ -9,11 +9,17 @@ See [SECURITY.md](SECURITY.md) for the full list of fixes.
 ## What is different
 
 * **Local only.** The backend listens on `127.0.0.1` and every request needs a private per-launch token.
-* **You approve risky actions.** Typing, clicking, clipboard, screenshots, file changes, links, WhatsApp messages and screen control each show an approval dialog. Approvals are single use.
-* **No shell access for the AI.** Only read-only presets (date, uptime, disk usage, OS version, battery, Wi-Fi name, top processes).
+* **You approve risky actions** (unless you turn on Full Control mode). Typing, clicking, clipboard, screenshots, file changes, links, WhatsApp messages and screen control each show an approval dialog. Approvals are single use.
+* **No shell access for the AI by default.** Only read-only presets, unless Full Control mode is on (date, uptime, disk usage, OS version, battery, Wi-Fi name, top processes).
 * **Files stay in `~/UltronWorkspace`.**
 * **Keys stay on the server.** The browser receives a short-lived, single-use voice token.
 * **Audit log** of every action at `<data folder>/data/audit.log`.
+
+## Full Control mode
+
+Set `ULTRON_FULL_CONTROL=1` in `.env` (it is on in `.env.example`). Ultron can then run any shell command, open Terminal, use every shortcut and read or change any file in your home folder, with no approval prompts. A red "Full control on" badge stays on screen while it is active, every action is written to the audit log, and Ultron refuses to start in this mode if `ULTRON_HOST` exposes it to other devices.
+
+Risk you accept: text Ultron reads (web pages, messages, files, the screen) could try to trick it into running harmful commands. Remove the line to return to approval mode.
 
 ## Local mode (no API key)
 

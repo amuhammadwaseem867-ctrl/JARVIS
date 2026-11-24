@@ -112,6 +112,10 @@ export class LocalAssistantService implements AssistantEngine {
     if (action.action === "run_command" && result.stdout) {
       return `${announce.replace(/^Checking/, "Here's")}\n${String(result.stdout).trim().split("\n").slice(0, 6).join("\n")}`;
     }
+    if (action.action === "run_shell") {
+      const out = String(result.stdout || result.stderr || "").trim();
+      return out ? `Done.\n${out.split("\n").slice(-12).join("\n")}` : "Done.";
+    }
     if (action.action === "status") {
       return `Python ${result.pythonVersion}. Active app: ${result.frontmostApp || "desktop"}.`;
     }
