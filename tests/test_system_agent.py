@@ -93,3 +93,19 @@ class FullControlTests(unittest.TestCase):
     def test_still_inside_home(self):
         r = run({"action": "fs_op", "operation": "read", "path": "/etc/passwd"}, self.env)
         self.assertFalse(r["ok"])
+
+
+class WakeWordTests(unittest.TestCase):
+    def setUp(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("wake_listener", AGENT.parent / "wake_listener.py")
+        self.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.mod)
+
+    def test_matches(self):
+        m = self.mod.match_wake
+        self.assertEqual(m("Ultron, open WhatsApp."), "open WhatsApp.")
+        self.assertEqual(m("Hey Ultron"), "")
+        self.assertEqual(m("Ultra on, volume 40"), "volume 40")
+        self.assertEqual(m("What's the weather, Ultron?"), "What's the weather?")
+        self.assertIsNone(m("open notes please"))

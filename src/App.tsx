@@ -37,6 +37,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { HologramCore } from '@/components/ui/hologram-core';
 import { AIRALiveService, type AIRALiveCallbacks } from './services/geminiLiveService';
 import { LocalAssistantService, type AssistantEngine } from './services/localAssistantService';
+import { WakeWatcher } from './services/wakeWord';
 
 interface DesktopPermissionsStatus {
   platform: string;
@@ -1819,6 +1820,32 @@ export default function App() {
       }]);
     }
   };
+
+  // Wake word: saying "Ultron" switches the assistant on, no typing or clicking.
+  const wakeRefs = React.useRef({ isActive, startAiraSession, handleSendMessage });
+  wakeRefs.current = { isActive, startAiraSession, handleSendMessage };
+  const wakeRef = React.useRef<WakeWatcher | null>(null);
+  React.useEffect(() => {
+    const watcher = new WakeWatcher(async (command) => {
+      const { isActive: active, startAiraSession: start } = wakeRefs.current;
+      if (!active) {
+        setSystemBanner('Wake word heard. Starting Ultron…');
+        await start();
+      }
+      if (command) {
+        // Let the session settle before sending the spoken command.
+        window.setTimeout(() => {
+          if (airaRef.current) wakeRefs.current.handleSendMessage(command);
+        }, active ? 0 : 900);
+      }
+    });
+    wakeRef.current = watcher;
+    watcher.start();
+    return () => watcher.stop();
+  }, []);
+  React.useEffect(() => {
+    wakeRef.current?.setBrowserListening(!isActive);
+  }, [isActive]);
 
   return (
     <div className="flex flex-col lg:flex-row lg:h-screen w-full bg-dash-bg text-white lg:overflow-hidden overflow-y-auto selection:bg-dash-accent/30 relative">

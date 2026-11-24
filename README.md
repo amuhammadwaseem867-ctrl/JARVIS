@@ -36,6 +36,24 @@ The local model only writes text. It is never given control of your computer; co
 | `ULTRON_OLLAMA_MODEL` | `llama3.2` | Preferred local model |
 | `ULTRON_OLLAMA_URL` | `http://127.0.0.1:11434` | Must stay on this computer |
 
+## Wake word and auto-start
+
+Say **"Ultron"** and it switches itself on, no code, no Start button. "Ultron, open WhatsApp" wakes it and runs the command; "Hey Ultron" wakes it and waits for you.
+
+* **Desktop app**: install the free offline speech engine once with `python3 -m pip install faster-whisper sounddevice numpy`. Ultron then starts hidden at login (tray icon), listens in the background and opens itself when called. Speech is transcribed on your computer. `Cmd/Ctrl + Shift + U` also opens it. Turn auto-start off in the tray menu or with `ULTRON_AUTOSTART=0`.
+* **Browser tab**: while Ultron is idle, Chrome, Edge and Safari listen for "Ultron" with their built-in speech recognition, no install needed.
+
+## Phone (iPhone and Android)
+
+With `ULTRON_PHONE=1` (on in `.env.example`), use Ultron from your phone's browser, microphone included, while it is on the same Wi-Fi as your computer:
+
+1. On the computer, press **Connect phone** (bottom left).
+2. Scan the QR code with the phone camera, or open the shown address and type the 6-digit code.
+3. The first time, the phone warns about the certificate, because it is made by your own computer. Tap **Show details, visit this website** (iPhone) or **Advanced, proceed** (Android).
+4. Optional: Share, **Add to Home Screen** for an app icon.
+
+A phone stays paired for 30 days. **Unpair all** in the same panel signs every phone out. Codes are single use, expire after 10 minutes and are burnt after 5 wrong tries. Phone settings can only be changed on the computer.
+
 ## Requirements
 
 * macOS for desktop control (the web UI and voice work anywhere)

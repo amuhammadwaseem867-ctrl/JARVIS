@@ -2,6 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import type { NextFunction, Request, Response } from "express";
+import { PHONE_PORT, isPairedCookie, isPhoneRequest, lanIp } from "./phone";
 
 /**
  * Ultron: request guard for the local backend.
@@ -32,17 +33,22 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export function hostAndOriginGuard(port: number) {
-  const hosts = allowedHosts(port);
+  const localHosts = allowedHosts(port);
   return (req: Request, res: Response, next: NextFunction) => {
+    // Phone listener: only this computer's LAN address on the phone port.
+    const ip = isPhoneRequest(req) ? lanIp() : null;
+    const hosts = ip ? new Set([`${ip}:${PHONE_PORT}`]) : localHosts;
     const host = String(req.headers.host || "").toLowerCase();
     if (!hosts.has(host)) {
       return res.status(421).json({ ok: false, error: "Unrecognised host." });
     }
     const origin = req.headers.origin;
-    if (origin && !hosts.has(origin.replace(/^https?:\/\//, "").toLowerCase())) {
+    const site = req.headers["sec-fetch-site"];
+    // Browsers send "Origin: null" on same-page form posts under Referrer-Policy: no-referrer.
+    const nullSameOrigin = origin === "null" && site === "same-origin";
+    if (origin && !nullSameOrigin && !hosts.has(origin.replace(/^https?:\/\//, "").toLowerCase())) {
       return res.status(403).json({ ok: false, error: "Cross-origin request blocked." });
     }
-    const site = req.headers["sec-fetch-site"];
     if (req.path.startsWith("/api") && site && site !== "same-origin" && site !== "none") {
       return res.status(403).json({ ok: false, error: "Cross-site request blocked." });
     }
@@ -51,6 +57,12 @@ export function hostAndOriginGuard(port: number) {
 }
 
 export function requireToken(req: Request, res: Response, next: NextFunction) {
+  if (isPhoneRequest(req)) {
+    if (req.path.startsWith("/phone/")) {
+      return res.status(403).json({ ok: false, error: "Phone settings can only be changed on the computer." });
+    }
+    return isPairedCookie(req.headers.cookie) ? next() : res.status(401).json({ ok: false, error: "This phone is not paired." });
+  }
   const supplied = String(req.headers[TOKEN_HEADER] || "");
   if (!supplied || !safeEqual(supplied, SESSION_TOKEN)) {
     return res.status(401).json({ ok: false, error: "Missing or invalid session token. Open Ultron from the link printed at startup." });
@@ -72,7 +84,7 @@ export function securityHeaders(isProd: boolean) {
     "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'none'",
-    "form-action 'none'",
+    "form-action 'self'",
     "frame-ancestors 'none'",
   ].join("; ");
   return (_req: Request, res: Response, next: NextFunction) => {
