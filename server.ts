@@ -1111,7 +1111,16 @@ function resolvePythonAgentPath(): string {
   return candidates[0];
 }
 
-const PYTHON_BIN = process.env.ULTRON_PYTHON || "python3";
+const PYTHON_BIN = process.env.ULTRON_PYTHON || (process.platform === "win32" ? "python" : "python3");
+/** Windows needs these for Python to start at all; they hold no secrets. */
+const WINDOWS_ENV: Record<string, string> =
+  process.platform === "win32"
+    ? Object.fromEntries(
+        ["SYSTEMROOT", "WINDIR", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "TEMP", "TMP"]
+          .filter((k) => process.env[k])
+          .map((k) => [k, process.env[k] as string]),
+      )
+    : {};
 
 function runPythonSystemAgent(payload: Record<string, any>): Promise<any> {
   return new Promise((resolve) => {
@@ -1120,8 +1129,9 @@ function runPythonSystemAgent(payload: Record<string, any>): Promise<any> {
     const child = spawn(PYTHON_BIN, ["-I", scriptPath], {
       stdio: ["pipe", "pipe", "pipe"],
       env: {
-        PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
-        HOME: process.env.HOME || "",
+        PATH: process.platform === "win32" ? process.env.PATH || "" : "/usr/bin:/bin:/usr/sbin:/sbin",
+        HOME: process.env.HOME || process.env.USERPROFILE || "",
+        ...WINDOWS_ENV,
         ULTRON_WORKSPACE: process.env.ULTRON_WORKSPACE || "",
         ULTRON_FULL_CONTROL: FULL_CONTROL ? "1" : "",
         LANG: "en_US.UTF-8",
@@ -1375,12 +1385,17 @@ function startWakeListener(attempt = 0) {
     stdio: ["ignore", "ignore", "pipe"],
     env: {
       PATH: process.env.PATH || "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
-      HOME: process.env.HOME || "",
+      HOME: process.env.HOME || process.env.USERPROFILE || "",
+      ...WINDOWS_ENV,
       ULTRON_URL: `http://127.0.0.1:${PORT}`,
       ULTRON_SESSION_TOKEN: SESSION_TOKEN,
       ULTRON_WAKE_MODEL: process.env.ULTRON_WAKE_MODEL || "",
       ULTRON_WAKE_SENSITIVITY: process.env.ULTRON_WAKE_SENSITIVITY || "",
     },
+  });
+  child.on("error", () => {
+    child.removeAllListeners("exit"); // no retries: Python is missing
+    console.warn(`Wake word is off: Python was not found ("${PYTHON_BIN}"). Install Python 3, or set ULTRON_PYTHON in .env.`);
   });
   child.stderr.on("data", (d) => process.stderr.write(`[wake] ${d}`));
   child.on("exit", (code) => {
@@ -1430,7 +1445,15 @@ async function startServer() {
     } else {
       try {
         const creds = await loadOrCreateCert(ip);
-        https.createServer(creds, app).listen(PHONE_PORT, ip, () => {
+        const phoneServer = https.createServer(creds, app);
+        phoneServer.on("error", (err: any) => {
+          console.error(
+            err?.code === "EADDRINUSE"
+              ? `Phone mode is off: port ${PHONE_PORT} is busy. Ultron is probably already running in another window; close it, or set ULTRON_PHONE_PORT in .env.`
+              : `Phone mode is off: ${err?.message}`,
+          );
+        });
+        phoneServer.listen(PHONE_PORT, ip, () => {
           console.log(`Phone mode: pair from Ultron on this computer (Connect phone). Phones reach it at https://${ip}:${PHONE_PORT}`);
         });
       } catch (err: any) {
@@ -1439,13 +1462,21 @@ async function startServer() {
     }
   }
   if (process.env.ULTRON_WAKE === "1") startWakeListener();
-  app.listen(PORT, HOST, () => {
+  const server = app.listen(PORT, HOST, () => {
     const url = `http://localhost:${PORT}/#token=${SESSION_TOKEN}`;
     if (process.env.ULTRON_QUIET_URL !== "1") {
       console.log(`Ultron is running. Open this private link (do not share it):\n  ${url}`);
     } else {
       console.log(`Ultron backend listening on ${HOST}:${PORT}`);
     }
+  });
+  server.on("error", (err: any) => {
+    if (err?.code === "EADDRINUSE") {
+      console.error(`Ultron is already running (port ${PORT} is busy). Close the other Ultron window first, or set PORT in .env.`);
+    } else {
+      console.error("Ultron could not start:", err?.message);
+    }
+    process.exit(1);
   });
 }
 
