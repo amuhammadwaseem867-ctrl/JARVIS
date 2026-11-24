@@ -34,7 +34,7 @@ import {
   FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { HologramCore } from '@/components/ui/hologram-core';
+import { CharacterOrb } from '@/components/ui/character-orb';
 import { AIRALiveService, primeAudioForSession, type AIRALiveCallbacks } from './services/geminiLiveService';
 import { LocalAssistantService, type AssistantEngine } from './services/localAssistantService';
 import { CLIENT_ID, WakeWatcher } from './services/wakeWord';
@@ -525,7 +525,7 @@ const NeuralCoreDeck = ({
 
             {/* Hologram Bust */}
             <div className="absolute inset-x-0 top-1 bottom-[74px] flex items-center justify-center">
-              <HologramCore isActive={isActive} audioLevel={audioLevel} />
+              <CharacterOrb isActive={isActive} audioLevel={audioLevel} />
             </div>
 
             {/* Bottom Status + Hexagonal Action Button + Mic */}

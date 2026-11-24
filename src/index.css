@@ -206,3 +206,18 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+/* Ultron character orb */
+@keyframes ultron-spin { to { transform: rotate(360deg); } }
+@keyframes ultron-spin-back { to { transform: rotate(-360deg); } }
+@keyframes ultron-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes ultron-scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+.ultron-orb-halo { background: radial-gradient(circle, rgba(34, 211, 238, .3) 0%, rgba(34, 211, 238, 0) 68%); transition: transform .12s linear, opacity .3s ease; }
+.ultron-orb-ring1 { animation: ultron-spin 24s linear infinite; }
+.ultron-orb-ring2 { animation: ultron-spin-back 36s linear infinite; }
+.ultron-orb.is-live .ultron-orb-ring1 { animation-duration: 7s; }
+.ultron-orb.is-live .ultron-orb-ring2 { animation-duration: 11s; }
+.ultron-orb-face { animation: ultron-breathe 6s ease-in-out infinite; }
+.ultron-orb-scan { background: linear-gradient(180deg, rgba(34, 211, 238, 0) 0%, rgba(34, 211, 238, .12) 50%, rgba(34, 211, 238, 0) 100%); animation: ultron-scan 5s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ultron-orb-ring1, .ultron-orb-ring2, .ultron-orb-face, .ultron-orb-scan { animation: none; }
+}
