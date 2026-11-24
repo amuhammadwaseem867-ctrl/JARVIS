@@ -4,7 +4,7 @@ import path from "path";
 import type { NextFunction, Request, Response } from "express";
 
 /**
- * Maya Secure: request guard for the local backend.
+ * Ultron: request guard for the local backend.
  *
  * The original AIRA server listened on 0.0.0.0 with no authentication, so any
  * device on the same network (or any web page, through DNS rebinding) could
@@ -15,11 +15,11 @@ import type { NextFunction, Request, Response } from "express";
  */
 
 export const SESSION_TOKEN: string =
-  process.env.MAYA_SESSION_TOKEN && process.env.MAYA_SESSION_TOKEN.length >= 32
-    ? process.env.MAYA_SESSION_TOKEN
+  process.env.ULTRON_SESSION_TOKEN && process.env.ULTRON_SESSION_TOKEN.length >= 32
+    ? process.env.ULTRON_SESSION_TOKEN
     : crypto.randomBytes(32).toString("base64url");
 
-export const TOKEN_HEADER = "x-maya-token";
+export const TOKEN_HEADER = "x-ultron-token";
 
 function allowedHosts(port: number): Set<string> {
   return new Set([`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`]);
@@ -53,7 +53,7 @@ export function hostAndOriginGuard(port: number) {
 export function requireToken(req: Request, res: Response, next: NextFunction) {
   const supplied = String(req.headers[TOKEN_HEADER] || "");
   if (!supplied || !safeEqual(supplied, SESSION_TOKEN)) {
-    return res.status(401).json({ ok: false, error: "Missing or invalid session token. Open Maya from the link printed at startup." });
+    return res.status(401).json({ ok: false, error: "Missing or invalid session token. Open Ultron from the link printed at startup." });
   }
   next();
 }

@@ -12,3 +12,5 @@ data/
 aicop/
 .aistudio/
 .antigravity/
+__pycache__/
+*.pyc

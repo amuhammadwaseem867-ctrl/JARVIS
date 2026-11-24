@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Maya Secure: hardened macOS system control agent.
+Ultron: hardened macOS system control agent.
 
 Derived from AIRA's python/system_agent.py (Copyright Arvind Kumar, Apache 2.0).
 Changes: removed arbitrary shell execution, replaced string-built AppleScript
@@ -118,11 +118,11 @@ class AgentError(Exception):
 
 
 def workspace_root() -> Path:
-    raw = os.environ.get("MAYA_WORKSPACE") or str(Path.home() / "MayaWorkspace")
+    raw = os.environ.get("ULTRON_WORKSPACE") or str(Path.home() / "UltronWorkspace")
     root = Path(os.path.expanduser(raw)).resolve()
     home = Path.home().resolve()
     if root == home or home not in root.parents:
-        raise AgentError("MAYA_WORKSPACE must be a subfolder of your home folder, not home itself.")
+        raise AgentError("ULTRON_WORKSPACE must be a subfolder of your home folder, not home itself.")
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -403,7 +403,7 @@ def handle_clipboard_set(payload):
 
 def handle_notify(payload):
     require_mac("Notifications")
-    title = clean_text(payload.get("title") or "Maya", limit=80)
+    title = clean_text(payload.get("title") or "Ultron", limit=80)
     message = clean_text(payload.get("message"), limit=300)
     res = osascript(["on run argv", "display notification (item 2 of argv) with title (item 1 of argv)", "end run"], [title, message])
     return {"ok": res.returncode == 0}
@@ -413,10 +413,10 @@ def resolve_in_workspace(raw):
     root = workspace_root()
     rel = str(raw or "").strip()
     if rel.startswith("~"):
-        raise AgentError("Use a path relative to the Maya workspace folder.")
+        raise AgentError("Use a path relative to the Ultron workspace folder.")
     candidate = (root / rel).resolve() if rel else root
     if candidate != root and root not in candidate.parents:
-        raise AgentError("Path must stay inside the Maya workspace folder.")
+        raise AgentError("Path must stay inside the Ultron workspace folder.")
     if any(part in SENSITIVE_PARTS for part in candidate.relative_to(root).parts):
         raise AgentError("That path is blocked.")
     return root, candidate

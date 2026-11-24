@@ -237,7 +237,7 @@ export const MemoryModal = ({
               <p className="text-[12px] text-white/45">
                 {coreState.memoryPaused
                   ? 'Memory recording is paused'
-                  : `${coreState.memories.length} memories stored · synced with AIRA Core`}
+                  : `${coreState.memories.length} memories stored · synced with Ultron`}
               </p>
             </div>
           </div>
@@ -347,7 +347,7 @@ export const MemoryModal = ({
                   rows={5}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="What should AIRA remember?"
+                  placeholder="What should Ultron remember?"
                   className="w-full bg-[#111621] border border-white/10 rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-cyan-400/50 resize-none"
                 />
               </div>
@@ -517,7 +517,7 @@ export const MemoryModal = ({
                 <div>
                   <p className="text-[13.5px] font-medium text-white">Pause Memory Recording</p>
                   <p className="text-[12px] text-white/45">
-                    When paused, AIRA stops injecting or recording new memory notes.
+                    When paused, Ultron stops injecting or recording new memory notes.
                   </p>
                 </div>
                 <button
@@ -738,7 +738,7 @@ export const SkillsModal = ({
             <div>
               <h2 className="text-[20px] font-semibold text-white">Skills</h2>
               <p className="text-white/40 text-[12px] mt-0.5">
-                Save the steps for a job once. Next time you ask for it, AIRA follows them without being told again.
+                Save the steps for a job once. Next time you ask for it, Ultron follows them without being told again.
               </p>
             </div>
           </div>
@@ -905,7 +905,7 @@ export const SkillsModal = ({
                   rows={6}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Step-by-step instructions AIRA should follow..."
+                  placeholder="Step-by-step instructions Ultron should follow..."
                   className="w-full bg-[#111] border border-white/8 rounded-xl px-4 py-3 text-[13px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 resize-none font-mono"
                 />
               </div>
@@ -1722,7 +1722,7 @@ export const SettingsModal = ({
                   <div>
                     <p className="text-[13px] font-medium text-white">Contextual Awareness</p>
                     <p className="text-[11.5px] text-white/45">
-                      AIRA notices active camera context and character awareness cues.
+                      Ultron notices active camera context and character awareness cues.
                     </p>
                   </div>
                   <button

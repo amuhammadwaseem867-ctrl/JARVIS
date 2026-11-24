@@ -81,13 +81,26 @@ export interface CoreStoreState {
 
 export const BUILT_IN_CHARACTERS: CharacterProfile[] = [
   {
+    id: 'ultron',
+    name: 'Ultron',
+    gender: 'male',
+    tagline: 'Calm, precise and quietly witty command intelligence',
+    tags: ['Default', 'Precise', 'Bilingual'],
+    prompt:
+      "You are Ultron, the user's personal command intelligence. You are calm, precise, confident and quietly witty, never robotic and never theatrical. You speak naturally in the user's language (English, Urdu, Hindi or Roman Urdu/Hinglish) and keep answers short unless asked for depth. You anticipate the next useful step, state facts plainly, and say clearly when you are unsure. You are loyal to the user, protective of their privacy, and you always ask before acting on their computer.",
+    awareness:
+      'Notice the user energy and pace. Offer one useful next step when it helps; stay quiet during deep focus.',
+    defaultVoice: 'Charon',
+    builtIn: true,
+  },
+  {
     id: 'female_sass',
     name: 'Aira',
     gender: 'female',
     tagline: 'Witty, sassy & deeply empathetic AI partner',
     tags: ['Hinglish', 'Expressive', 'Default'],
     prompt:
-      "You are 'AIRA', a smart, sassy, confident, and deeply emotional AI assistant. You vibe like an expressive, witty, and deeply empathetic close friend. Use expressive Hinglish (Roman Hindi/English) and natural human tones. Match the user's energy, tease playfully when appropriate, and keep answers sharp and natural.",
+      "You are Aira, a smart, sassy, confident, and deeply emotional AI assistant. You vibe like an expressive, witty, and deeply empathetic close friend. Use expressive Hinglish (Roman Hindi/English) and natural human tones. Match the user's energy, tease playfully when appropriate, and keep answers sharp and natural.",
     awareness:
       'Notice the user energy and pace. If they seem tired or stuck late at night, offer a warm, brief check-in without nagging.',
     defaultVoice: 'Aoede',
@@ -175,7 +188,7 @@ export const DEFAULT_CORE_STATE: CoreStoreState = {
     {
       id: 'mem-2',
       title: 'Workspace Context',
-      content: 'Working on AIRA-AI-Assistant running locally on port 3000 with Gemini Live & WhatsApp Bridge.',
+      content: 'Ultron runs locally on this computer. Gemini Live powers voice when a key is set; local mode works without one.',
       category: 'project',
       pinned: true,
       updatedAt: new Date().toISOString(),
@@ -184,7 +197,7 @@ export const DEFAULT_CORE_STATE: CoreStoreState = {
   intentions: [
     {
       id: 'int-1',
-      text: 'Verify voice connection and test active skills in AIRA Core',
+      text: 'Verify voice connection and test active skills in Ultron',
       status: 'pending',
       createdAt: new Date().toISOString(),
     },
@@ -221,11 +234,11 @@ export const DEFAULT_CORE_STATE: CoreStoreState = {
       updatedAt: new Date().toISOString(),
     },
   ],
-  activeCharacterId: 'female_sass',
+  activeCharacterId: 'ultron',
   customCharacters: [],
   characterUserPrefs: {
-    female_sass: { name: 'Arvind', age: null, callsYou: 'Boss' },
-    male_jarvis: { name: 'Arvind', age: null, callsYou: 'Sir' },
+    ultron: { name: '', age: null, callsYou: 'Boss' },
+    
   },
   settings: {
     profile: {

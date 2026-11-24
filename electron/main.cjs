@@ -13,7 +13,7 @@ const net = require('net');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-// Maya Secure: one random token per launch, shared only with our own window.
+// Ultron: one random token per launch, shared only with our own window.
 const SESSION_TOKEN = crypto.randomBytes(32).toString('base64url');
 // Sites the in-app web windows may load. Everything else opens in the default browser.
 const WEB_WINDOW_HOSTS = new Set(['www.instagram.com', 'instagram.com', 'web.whatsapp.com', 'www.youtube.com', 'x.com']);
@@ -39,7 +39,7 @@ function isHttpUrl(raw) {
   }
 }
 
-/** IPC calls are only accepted from the main Maya window. */
+/** IPC calls are only accepted from the main Ultron window. */
 function fromApp(event) {
   const url = event?.senderFrame?.url || '';
   return Boolean(mainWindow) && event.sender === mainWindow.webContents && isAppUrl(url);
@@ -204,9 +204,9 @@ async function ensureBackendRunning() {
   process.env.PORT = String(activePort);
   process.env.AIRA_APP_ROOT = app.isPackaged ? app.getAppPath() : path.resolve(__dirname, '..');
   process.env.AIRA_DATA_DIR = app.getPath('userData');
-  process.env.MAYA_SESSION_TOKEN = SESSION_TOKEN;
-  process.env.MAYA_QUIET_URL = '1';
-  process.env.MAYA_HOST = '127.0.0.1';
+  process.env.ULTRON_SESSION_TOKEN = SESSION_TOKEN;
+  process.env.ULTRON_QUIET_URL = '1';
+  process.env.ULTRON_HOST = '127.0.0.1';
 
   // Secrets are read only from the per-user data folder, never bundled into the app.
   const envCandidates = app.isPackaged
@@ -236,7 +236,7 @@ function createWindow(port) {
     minWidth: 1100,
     minHeight: 720,
     backgroundColor: '#05070a',
-    title: 'Maya Secure',
+    title: 'Ultron',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -305,9 +305,9 @@ function registerDesktopIpc() {
       width: 1120,
       height: 760,
       backgroundColor: '#0b141a',
-      title: String(title || 'Maya Portal').slice(0, 80),
+      title: String(title || 'Ultron Portal').slice(0, 80),
       webPreferences: {
-        partition: partition || 'persist:maya-web',
+        partition: partition || 'persist:ultron-web',
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
@@ -384,7 +384,7 @@ function registerDesktopIpc() {
     try {
       const res = await fetch(`${appOrigin()}/api/system/action`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Maya-Token': SESSION_TOKEN },
+        headers: { 'Content-Type': 'application/json', 'X-Ultron-Token': SESSION_TOKEN },
         body: JSON.stringify({ action: 'open_app', target: String(target || '').slice(0, 300) }),
       });
       return await res.json();
@@ -396,7 +396,7 @@ function registerDesktopIpc() {
 
 app.whenReady().then(async () => {
   // Auto-grant mic & camera permissions inside AIRA desktop app
-  // Camera, mic and notifications only for the Maya window itself, never for loaded websites.
+  // Camera, mic and notifications only for the Ultron window itself, never for loaded websites.
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const requester = details?.requestingUrl || webContents.getURL();
     const allowed = ['media', 'audioCapture', 'videoCapture', 'notifications'].includes(permission);

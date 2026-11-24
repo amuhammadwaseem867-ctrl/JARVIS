@@ -1,9 +1,9 @@
 {
-  "name": "maya-secure",
+  "name": "ultron",
   "private": true,
   "version": "1.0.0",
-  "description": "Maya Secure: a hardened fork of AIRA AI Assistant (voice, vision and approved desktop control)",
-  "author": "Maya Secure contributors (based on AIRA by Arvind Kumar, @arvindcodex)",
+  "description": "Ultron: a secure personal voice, vision and desktop assistant (built on AIRA by Arvind Kumar)",
+  "author": "Ultron contributors (based on AIRA by Arvind Kumar, @arvindcodex)",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -19,8 +19,8 @@
     "audit": "npm audit --omit=dev"
   },
   "build": {
-    "appId": "com.mayasecure.assistant",
-    "productName": "Maya Secure",
+    "appId": "com.ultron.assistant",
+    "productName": "Ultron",
     "directories": {
       "output": "release"
     },
@@ -44,10 +44,10 @@
       ],
       "category": "public.app-category.productivity",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Maya needs microphone access for live voice conversation.",
-        "NSCameraUsageDescription": "Maya needs camera access for emotion awareness and visual understanding.",
-        "NSAppleEventsUsageDescription": "Maya needs Automation access to control macOS applications and system workflows.",
-        "NSScreenCaptureUsageDescription": "Maya needs Screen Recording access so its vision agent can read your screen and assist you."
+        "NSMicrophoneUsageDescription": "Ultron needs microphone access for live voice conversation.",
+        "NSCameraUsageDescription": "Ultron needs camera access for emotion awareness and visual understanding.",
+        "NSAppleEventsUsageDescription": "Ultron needs Automation access to control macOS applications and system workflows.",
+        "NSScreenCaptureUsageDescription": "Ultron needs Screen Recording access so its vision agent can read your screen and assist you."
       }
     }
   },

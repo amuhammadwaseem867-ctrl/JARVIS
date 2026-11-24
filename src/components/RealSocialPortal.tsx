@@ -218,7 +218,7 @@ export const RealSocialPortal = ({
               <div className="max-w-md space-y-1.5">
                 <h3 className="text-base font-semibold text-white">Real Instagram Portal</h3>
                 <p className="text-xs text-white/55">
-                  Launch real Instagram in the AIRA Mac Electron app or open in your default browser.
+                  Launch real Instagram in the Ultron Mac app or open in your default browser.
                 </p>
               </div>
               <button
