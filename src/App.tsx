@@ -2142,7 +2142,7 @@ export default function App() {
                 type="button"
                 onClick={async () => {
                   await window.airaDesktop?.revealAppInFinder?.();
-                  setPermActionMsg('Opened Ultron.app in Finder — you can drag it into Accessibility/Screen Recording.');
+                  setPermActionMsg('Opened Silvia.app in Finder — you can drag it into Accessibility/Screen Recording.');
                 }}
                 className="px-3.5 py-2 rounded-xl bg-white/8 hover:bg-white/15 text-xs text-white flex items-center gap-1.5 cursor-pointer"
               >
@@ -2155,7 +2155,7 @@ export default function App() {
                   onClick={async () => {
                     const res = await window.airaDesktop?.installToApplications?.();
                     if (res?.ok) {
-                      setPermActionMsg('Copied to /Applications/Ultron.app!');
+                      setPermActionMsg('Copied to /Applications/Silvia.app!');
                       void refreshMacPermissions();
                     } else {
                       setPermActionMsg(res?.error || 'Could not copy to /Applications');
