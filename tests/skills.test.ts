@@ -36,7 +36,7 @@ const api = (base: string, p: string, method = "GET") =>
   fetch(base + p, { method, headers: { "X-Ultron-Token": TOKEN } }).then((r) => r.json());
 
 test("professional skills: no double hyphens, all filled in", () => {
-  assert.equal(PRO_SKILLS.length, 8);
+  assert.equal(PRO_SKILLS.length, 9);
   for (const s of PRO_SKILLS) {
     assert.ok(s.description && s.whenToUse && s.content.length > 400, s.name);
     assert.ok(!`${s.description}${s.whenToUse}${s.content}`.includes("--"), s.name);

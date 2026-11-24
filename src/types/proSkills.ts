@@ -207,6 +207,44 @@ Daily routine the user can ask for ("client hunting karo"): find 10 new leads, s
 - Portfolio flywheel: turn every finished project into a case study with the result in numbers and use it in the next pitch.`,
   },
   {
+    name: "meeting-assistant",
+    description: "Meeting assistant: prepares agendas and research, takes live notes, writes summaries with decisions and action items, drafts follow ups and reminders.",
+    whenToUse: "When the user mentions a meeting, call, client call, interview, Zoom, Google Meet, Teams, agenda, minutes, notes, summary, action items or a follow up after a meeting.",
+    content: `# Meeting assistant
+
+## Before the meeting ("meeting ki tayyari karo")
+1. Ask only what is missing: who, company, goal of the meeting, time, platform (Zoom, Google Meet, Teams, WhatsApp call, in person).
+2. Research with Google Search: the person (role, recent posts), the company (what they sell, size, recent news, website problems if it is a sales call). Five bullet points, no fluff.
+3. Write an agenda: goal in one line, 3 to 5 topics with minutes for each, the questions to ask, the outcome you want (for example "call booked", "proposal approved").
+4. Save it with controlSystem fs_op write to meetings/<yyyy-mm-dd>-<name>/prep.md and read the key points out loud.
+5. Five minutes before: open the meeting link with openWebsite (or the Zoom or Teams app with openApplication) when the user asks, and set a notification with controlSystem notify.
+
+## During the meeting ("notes lo" or "meeting mode")
+- Listen quietly. Do not speak unless the user says "Ultron" or asks you something directly. Answers during a meeting are one or two sentences.
+- Remind the user once to tell the other people that notes are being taken; recording or noting a call without consent is illegal in many places.
+- Keep running notes: topics, decisions, numbers (prices, dates, quantities), objections, questions left open, and who promised what.
+- If the user asks "abhi tak kya hua?", give a 3 line recap.
+- Ultron only hears the computer's microphone and speakers; for online calls keep the call audio on speakers, or use the platform's own transcript and paste it in.
+
+## After the meeting ("meeting khatam, summary do")
+1. Summary file meetings/<yyyy-mm-dd>-<name>/summary.md with:
+   - One line outcome.
+   - Key points (5 bullets max).
+   - Decisions made.
+   - Action items as a table: task, owner, due date.
+   - Open questions and risks.
+   - Next meeting date if agreed.
+2. Draft the follow up message (email or WhatsApp) in the other person's language: thanks, the decisions, the action items with dates, the next step. Show it to the user and send only after they approve.
+3. Reminders: for each of the user's action items, offer a notification at the due time; add the next meeting to their calendar when they ask (open Google Calendar with openWebsite).
+4. For sales calls, update leads/leads.csv from the client-hunter skill (status, next step) and, if they asked for a price, start the proposal.
+
+## Advanced
+- Meeting types: sales discovery (pain, budget, decision maker, timeline), client project kickoff (scope, deliverables, approvals, communication channel), interview (structured questions, scorecard 1 to 5 per skill), team standup (yesterday, today, blockers).
+- Weekly review: read all summaries of the week, list open action items by owner and overdue ones first.
+- Negotiation support: before the call, set the walk away price and 2 trade offs; during the call, quietly flag when a concession is asked for without something in return.
+- Privacy: meeting files stay on this computer in the Ultron workspace; never share them anywhere without the user asking.`,
+  },
+  {
     name: "youtube-automation",
     description: "YouTube growth and automation: niche research, scripts, voiceover, editing, thumbnails, SEO, uploads, analytics.",
     whenToUse: "When the user wants to start or grow a YouTube channel, faceless or automated channel, Shorts, video ideas, scripts, titles, thumbnails, upload schedule, monetisation or channel analytics.",
