@@ -80,7 +80,7 @@ For the packaged app, put your `.env` in `~/Library/Application Support/ultron/`
 
 ### Windows
 
-Chat, voice, Gemini, the wake word and phone mode work on Windows. Opening apps, volume and other computer control are macOS only for now. Python is called `python` on Windows; set `ULTRON_PYTHON` in `.env` if yours has another name. If Ultron says a port is busy, it is already running in another window: close that window first.
+Everything works on Windows 10 and 11, computer control included: opening apps (Start Menu and Store apps such as WhatsApp), links, volume and mute, typing, shortcuts (`ctrl`, `alt`, `shift`, `win`), mouse, screenshots for the screen agent, clipboard, notifications, files and, in Full Control mode, PowerShell commands. It uses only built-in Windows parts (PowerShell and user32), no extra installs. Python is called `python` on Windows; set `ULTRON_PYTHON` in `.env` if yours has another name. If Ultron says a port is busy, it is already running in another window: close that window first.
 
 ## Settings
 

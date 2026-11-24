@@ -109,3 +109,38 @@ class WakeWordTests(unittest.TestCase):
         self.assertEqual(m("Ultra on, volume 40"), "volume 40")
         self.assertEqual(m("What's the weather, Ultron?"), "What's the weather?")
         self.assertIsNone(m("open notes please"))
+
+
+class WindowsBackendTests(unittest.TestCase):
+    """Windows code paths that can be checked without Windows (validation runs first)."""
+
+    def setUp(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("system_agent_win", AGENT)
+        self.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.mod)
+        self.mod.IS_WIN = True
+        self.mod.FULL_CONTROL = False
+
+    def test_same_presets_as_mac(self):
+        self.assertEqual(set(self.mod.WIN_COMMAND_PRESETS), set(self.mod.COMMAND_PRESETS))
+
+    def test_code_runners_blocked(self):
+        for name in ["powershell", "cmd", "Windows Terminal", "regedit"]:
+            with self.assertRaises(self.mod.AgentError):
+                self.mod.handle_open_app({"target": name})
+
+    def test_dangerous_shortcuts_blocked(self):
+        for combo in ["alt+f4", "win+l", "ctrl+shift+escape", "win+r"]:
+            with self.assertRaises(self.mod.AgentError):
+                self.mod.handle_hotkey({"keys": combo})
+
+    def test_bad_input_rejected(self):
+        with self.assertRaises(self.mod.AgentError):
+            self.mod.handle_open_app({"target": "calc; rm -rf"})
+        with self.assertRaises(self.mod.AgentError):
+            self.mod.handle_open_app({"target": "file:///C:/Windows"})
+        with self.assertRaises(self.mod.AgentError):
+            self.mod.handle_volume({})
+        with self.assertRaises(self.mod.AgentError):
+            self.mod.handle_hotkey({"keys": "hyper+x"})
