@@ -112,7 +112,14 @@ export class LocalAssistantService implements AssistantEngine {
       });
       const data = await res.json();
       reply = data?.ok ? String(data.reply || "") : String(data?.error || "Something went wrong.");
-      if (data?.ok && data.action) reply = await this.runAction(data.action, reply);
+      const actions: Record<string, any>[] = Array.isArray(data?.actions) ? data.actions : data?.action ? [data.action] : [];
+      if (data?.ok && actions.length === 1) reply = await this.runAction(actions[0], reply);
+      else if (data?.ok && actions.length > 1) {
+        // Multitasking: every action starts at the same time.
+        const said: string[] = Array.isArray(data.replies) ? data.replies : [];
+        const results = await Promise.all(actions.map((a, i) => this.runAction(a, said[i] || "Done.")));
+        reply = results.join(" ");
+      }
     } catch {
       reply = "I can't reach my local backend right now.";
     }

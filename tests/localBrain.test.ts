@@ -35,3 +35,19 @@ test("picks an installed Ollama model", () => {
 test("run <command> maps to run_shell", () => {
   assert.deepEqual(parseIntent("run ls -la ~/Desktop")!.action, { action: "run_shell", command: "ls -la ~/Desktop" });
 });
+
+test("several commands in one sentence become several actions", async () => {
+  const { parseIntents } = await import("../server/localBrain");
+  const r = parseIntents("open YouTube and volume 40, then check battery")!;
+  assert.deepEqual(r.actions, [
+    { action: "open_app", target: "youtube" },
+    { action: "volume", level: 40 },
+    { action: "run_command", preset: "battery" },
+  ]);
+  // The open verb carries over: "YouTube aur Chrome kholo".
+  assert.deepEqual(parseIntents("youtube aur chrome kholo")!.actions.map((a) => a.target), ["youtube", "Google Chrome"]);
+  // Shell commands are never split.
+  assert.equal(parseIntents("run echo a and echo b")!.actions.length, 1);
+  // Not all parts are commands: one request.
+  assert.equal(parseIntents("open youtube and tell me a joke")!.actions.length, 1);
+});

@@ -15,6 +15,10 @@ See [SECURITY.md](SECURITY.md) for the full list of fixes.
 * **Keys stay on the server.** The browser receives a short-lived, single-use voice token.
 * **Audit log** of every action at `<data folder>/data/audit.log`.
 
+## Multitasking
+
+Ask for several things at once: "open YouTube and set volume to 40, then check battery". With Gemini, every tool call of a turn runs at the same time, and Google Search gives current answers (news, prices, weather). In local mode, a sentence made of known commands is split and all of them run together.
+
 ## Full Control mode
 
 Set `ULTRON_FULL_CONTROL=1` in `.env` (it is on in `.env.example`). Ultron can then run any shell command, open Terminal, use every shortcut and read or change any file in your home folder, with no approval prompts. A red "Full control on" badge stays on screen while it is active, every action is written to the audit log, and Ultron refuses to start in this mode if `ULTRON_HOST` exposes it to other devices.
