@@ -29,9 +29,11 @@ import {
   PHONE_ENABLED,
   PHONE_PORT,
   addDevice,
+  caCertificate,
   cookieHeader,
   forgetAllDevices,
   initPhone,
+  installPage,
   isPairedCookie,
   isPhoneRequest,
   lanIp,
@@ -155,8 +157,16 @@ app.disable("x-powered-by");
 app.use(hostAndOriginGuard(PORT));
 app.use(securityHeaders(IS_PROD));
 /* ---------- Phone pairing (runs before the token check) ---------- */
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (!isPhoneRequest(req)) return next();
+  // Public pieces needed to install the app before pairing: no data, no actions.
+  if (req.method === "GET" && req.path === "/install") return res.type("html").send(installPage());
+  if (req.method === "GET" && req.path === "/ultron-ca.crt") {
+    res.setHeader("Content-Type", "application/x-x509-ca-cert");
+    res.setHeader("Content-Disposition", 'attachment; filename="ultron-ca.crt"');
+    return res.send(await caCertificate());
+  }
+  if (req.method === "GET" && (req.path === "/manifest.webmanifest" || /^\/icons\/[\w.-]+\.png$/.test(req.path))) return next();
   const finishPairing = (ok: string) => {
     if (ok === "ok") {
       res.setHeader("Set-Cookie", cookieHeader(addDevice(String(req.headers["user-agent"] || ""))));

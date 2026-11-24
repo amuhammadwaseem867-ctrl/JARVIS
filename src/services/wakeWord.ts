@@ -38,6 +38,7 @@ export class WakeWatcher {
   private recognition: any = null;
   private browserWanted = false;
   private stopped = false;
+  private needsTap = false;
 
   constructor(onWake: (command: string, source: string) => void, onActivity: (item: ActivityItem) => void = () => {}) {
     this.onWake = onWake;
@@ -113,10 +114,18 @@ export class WakeWatcher {
       };
       rec.onend = () => {
         this.recognition = null;
-        if (this.browserWanted && !this.stopped) window.setTimeout(() => this.startBrowser(), 400);
+        if (this.browserWanted && !this.stopped && !this.needsTap) window.setTimeout(() => this.startBrowser(), 400);
       };
       rec.onerror = (e: any) => {
-        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') this.browserWanted = false;
+        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+          // Phones (iPhone above all) only allow the mic after a tap: listen again on the next tap.
+          if (this.needsTap) return;
+          this.needsTap = true;
+          window.addEventListener('pointerdown', () => {
+            this.needsTap = false;
+            if (this.browserWanted && !this.stopped) this.startBrowser();
+          }, { once: true });
+        }
       };
       rec.start();
       this.recognition = rec;

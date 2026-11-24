@@ -58,25 +58,74 @@ export function isPhoneRequest(req: Request): boolean {
 
 /* ---------- certificate ---------- */
 
+const CERT_FORMAT = "v2"; // v2: leaf signed by a local Ultron CA (iPhone can trust it)
+
+async function selfsignedGenerate(): Promise<(attrs: unknown, opts: unknown) => Promise<{ private: string; cert: string }>> {
+  const selfsigned: any = await import("selfsigned");
+  return selfsigned.generate ?? selfsigned.default?.generate;
+}
+
+/**
+ * A small certificate authority made on this computer, used only to sign the
+ * phone listener's certificate. Installing it on an iPhone (Settings, then
+ * Certificate Trust Settings) removes the warning and lets the home screen
+ * app open; iOS refuses untrusted certificates in home screen apps.
+ */
+async function loadOrCreateCa(): Promise<{ key: string; cert: string }> {
+  const keyFile = path.join(dir, "ca-key.pem");
+  const certFile = path.join(dir, "ca.pem");
+  if (fs.existsSync(keyFile) && fs.existsSync(certFile)) {
+    return { key: fs.readFileSync(keyFile, "utf8"), cert: fs.readFileSync(certFile, "utf8") };
+  }
+  const gen = await selfsignedGenerate();
+  const pems = await gen([{ name: "commonName", value: "Ultron local CA (this computer only)" }, { name: "organizationName", value: "Ultron" }], {
+    keySize: 2048,
+    algorithm: "sha256",
+    notAfterDate: new Date(Date.now() + 10 * 365 * 86400_000),
+    extensions: [
+      { name: "basicConstraints", cA: true, pathLenConstraint: 0, critical: true },
+      { name: "keyUsage", keyCertSign: true, cRLSign: true, critical: true },
+    ],
+  });
+  fs.writeFileSync(keyFile, pems.private, { mode: 0o600 });
+  fs.writeFileSync(certFile, pems.cert, { mode: 0o600 });
+  return { key: pems.private, cert: pems.cert };
+}
+
+/** The CA certificate (public part only) for installing on the phone. */
+export async function caCertificate(): Promise<string> {
+  return (await loadOrCreateCa()).cert;
+}
+
 export async function loadOrCreateCert(ip: string): Promise<{ key: string; cert: string }> {
   const keyFile = path.join(dir, "key.pem");
   const certFile = path.join(dir, "cert.pem");
   const ipFile = path.join(dir, "cert-ip.txt");
-  if (fs.existsSync(keyFile) && fs.existsSync(certFile) && fs.readFileSync(ipFile, "utf8").trim() === ip) {
+  const stamp = `${ip}|${CERT_FORMAT}`;
+  const fresh = fs.existsSync(certFile) && Date.now() - fs.statSync(certFile).mtimeMs < 380 * 86400_000;
+  if (fresh && fs.existsSync(keyFile) && fs.existsSync(ipFile) && fs.readFileSync(ipFile, "utf8").trim() === stamp) {
     return { key: fs.readFileSync(keyFile, "utf8"), cert: fs.readFileSync(certFile, "utf8") };
   }
-  const selfsigned: any = await import("selfsigned");
-  const gen = selfsigned.generate ?? selfsigned.default?.generate;
-  const pems = await gen([{ name: "commonName", value: "Ultron (this computer)" }], {
-    days: 825,
+  const ca = await loadOrCreateCa();
+  const gen = await selfsignedGenerate();
+  const pems = await gen([{ name: "commonName", value: ip }], {
     keySize: 2048,
     algorithm: "sha256",
-    extensions: [{ name: "subjectAltName", altNames: [{ type: 7, ip }, { type: 2, value: "localhost" }] }],
+    notAfterDate: new Date(Date.now() + 397 * 86400_000), // Apple's limit for server certificates
+    ca,
+    extensions: [
+      { name: "basicConstraints", cA: false, critical: true },
+      { name: "keyUsage", digitalSignature: true, keyEncipherment: true, critical: true },
+      { name: "extKeyUsage", serverAuth: true },
+      { name: "subjectAltName", altNames: [{ type: 7, ip }, { type: 2, value: "localhost" }] },
+    ],
   });
   fs.writeFileSync(keyFile, pems.private, { mode: 0o600 });
-  fs.writeFileSync(certFile, pems.cert, { mode: 0o600 });
-  fs.writeFileSync(ipFile, ip, { mode: 0o600 });
-  return { key: pems.private, cert: pems.cert };
+  // Send the CA along with the leaf so phones can build the chain.
+  const chain = `${pems.cert.trim()}\n${ca.cert.trim()}\n`;
+  fs.writeFileSync(certFile, chain, { mode: 0o600 });
+  fs.writeFileSync(ipFile, stamp, { mode: 0o600 });
+  return { key: pems.private, cert: chain };
 }
 
 /* ---------- pairing ---------- */
@@ -210,5 +259,40 @@ button{margin-top:16px;width:100%;height:50px;border:0;border-radius:12px;backgr
 <form method="post" action="/pair"><label for="c">Pairing code</label>
 <input id="c" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus>
 <button type="submit">Pair</button>${error ? `<p class="err" role="alert">${esc(error)}</p>` : ""}</form>
+<p style="margin:18px 0 0;font-size:14px"><a href="/install" style="color:var(--accent)">Install Ultron as an app on this phone</a></p>
+</main></body></html>`;
+}
+
+/* ---------- install as an app ---------- */
+
+export function installPage(): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05070a"><title>Install Ultron</title>
+<style>
+:root{--bg:#05070a;--card:#0d1117;--line:rgba(255,255,255,.1);--text:#f4f6f8;--muted:#8b949e;--accent:#00e5f2}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:28px 16px}
+main{max-width:460px;margin:0 auto}p.k{margin:0 0 6px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+h1{margin:0 0 20px;font-size:26px;letter-spacing:-.01em}h2{font-size:17px;margin:28px 0 10px}
+ol{margin:0;padding-left:22px;color:var(--muted)}li{margin:0 0 10px}strong{color:var(--text)}
+a.btn{display:block;text-align:center;margin:14px 0 6px;height:50px;line-height:50px;border-radius:12px;background:var(--accent);color:#001316;font-weight:650;text-decoration:none}
+.note{font-size:13px;color:var(--muted);border-top:1px solid var(--line);margin-top:28px;padding-top:16px}
+</style></head><body><main>
+<p class="k">Ultron</p><h1>Install Ultron on your phone</h1>
+<h2>iPhone (Safari)</h2>
+<ol>
+<li><strong>Trust this computer once.</strong> Tap the button below and choose <strong>Allow</strong>.
+<a class="btn" href="/ultron-ca.crt">Download Ultron certificate</a></li>
+<li>Open <strong>Settings</strong>, tap <strong>Profile Downloaded</strong> at the top, then <strong>Install</strong>.</li>
+<li>Go to <strong>Settings, General, About, Certificate Trust Settings</strong> and switch on <strong>Ultron local CA</strong>.</li>
+<li>Back in Safari, open this page's address again, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+<li>Open Ultron from the new icon and pair once with the 6-digit code from your computer.</li>
+</ol>
+<h2>Android (Chrome)</h2>
+<ol>
+<li>Tap the <strong>three dots</strong> menu, then <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
+<li>Open Ultron from the new icon and pair once.</li>
+</ol>
+<p class="note">The certificate is made on your computer and only works for Ultron on your own Wi-Fi. To remove it later, delete the profile in Settings, General, VPN and Device Management. Voice works while Ultron is open on screen; phones do not let web apps listen when locked or in the background.</p>
 </main></body></html>`;
 }
