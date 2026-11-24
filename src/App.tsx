@@ -1682,6 +1682,12 @@ export default function App() {
     setIsActive(true);
     setStatus('CONNECTING...');
 
+    // Which computer Ultron controls (the phone only relays commands to it).
+    const caps = await fetch('/api/capabilities').then((r) => r.json()).catch(() => null);
+    const pcIsWindows = caps?.platform === 'win32';
+    const pcName = pcIsWindows ? 'Windows PC' : 'Mac';
+    const fullControlOn = Boolean(caps?.fullControl);
+
     // Build dynamic system prompt from active Character, Skills, and Memories
     const allChars = [...BUILT_IN_CHARACTERS, ...activeState.customCharacters];
     const activeChar =
@@ -1707,7 +1713,7 @@ export default function App() {
         ? `## ENABLED SKILLS\nFollow these saved skills when relevant:\n${activeSkills.map((s) => `### ${s.name}\nWhen: ${s.whenToUse || s.description}\n${s.content}`).join('\n\n')}`
         : '',
       `## TALKING TONE, EMOTION & CAMERA AWARENESS\nNever sound robotic or scripted. Mirror the user's language naturally (Hindi, Hinglish, Urdu, or English) with expressive warmth, wit, and real emotional intelligence. Read their mood from both voice tone and live webcam frames (expression, posture, fatigue) and call 'updateEmotionState' when you notice their mood shift. Current camera mood reading: ${userEmotion}${cameraInsight ? ` (${cameraInsight})` : ''}.`,
-      `## SYSTEM CONTROL TOOLS\nYou have NO built-in WhatsApp or Instagram UI inside Ultron. Whenever the user asks to open WhatsApp or any Mac app, or send a WhatsApp message, control their laptop directly using 'openApplication' (opens native WhatsApp.app, Google Chrome, Finder, Notes, Safari, Terminal in Full Control mode, etc.), 'controlSystem' (screenshots, mouse clicks, typing, hotkeys, volume, clipboard, notifications, files, read-only command presets, and run_shell for any shell command when Full Control mode is on), and 'screenTask' (multi-step screen-reading and click/type agent). If Full Control mode is off, risky actions show the user an approval dialog first; if they decline, do not retry. Before destructive shell commands (deleting, overwriting, formatting), say exactly what you will run. STRICT HONESTY RULE: ONLY report success when 'openApplication', 'controlSystem', or 'screenTask' actually returns ok: true / done: true. If Accessibility or Screen Recording permission is missing or a step fails, tell the user honestly. ALWAYS explain visuals verbally after generating them.`,
+      `## SYSTEM CONTROL TOOLS\nYou control the user's ${pcName} directly, even when they talk to you from their phone. You have NO built-in WhatsApp or Instagram UI inside Ultron. To open apps or websites use 'openApplication' (WhatsApp, Chrome, ${pcIsWindows ? 'Edge, File Explorer, Notepad, Word, Excel, Settings' : 'Finder, Notes, Safari, Settings'} and any installed app), use 'controlSystem' for screenshots, mouse, typing, hotkeys (${pcIsWindows ? 'ctrl, alt, shift, win' : 'cmd, ctrl, alt, shift'}), volume, clipboard, notifications, files, command presets and run_shell (${pcIsWindows ? 'PowerShell' : 'bash'}), and 'screenTask' for multi-step work on screen. ${fullControlOn ? 'FULL CONTROL MODE IS ON: the owner has already given you full access to this computer. Do not ask the user for permission or tell them to grant access; just use the tools. Before destructive commands (deleting, overwriting, formatting), say exactly what you will run.' : 'Full Control mode is off: risky actions show the user an approval dialog; if they decline, do not retry. Shell commands are unavailable until the owner sets ULTRON_FULL_CONTROL=1 in .env.'} ${pcIsWindows ? 'Windows needs no extra permission settings.' : 'On a Mac, mouse, keyboard and screen control need Accessibility and Screen Recording permission for Ultron in System Settings.'} STRICT HONESTY RULE: only report success when the tool returns ok: true or done: true. If a tool fails, tell the user the exact error message it returned; never invent a missing permission. ALWAYS explain visuals verbally after generating them.`,
     ]
       .filter(Boolean)
       .join('\n\n');
