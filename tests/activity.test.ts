@@ -115,3 +115,16 @@ test("the wake word is not delivered while a session is already listening", asyn
   assert.equal(a.events.filter((e) => e.type === "wake").length, 2);
   a.close();
 });
+
+test("Connect on one device switches the other devices too, not itself", async () => {
+  const phone = await listen("devPhone");
+  const pc = await listen("devPc");
+  assert.equal((await post("/api/session-switch", { on: true, clientId: "devPhone" })).delivered, 1);
+  await post("/api/session-switch", { on: false, clientId: "devPhone" });
+  await wait(150);
+  assert.deepEqual(pc.events.filter((e) => e.type === "session").map((e) => e.data.on), [true, false]);
+  assert.equal(phone.events.filter((e) => e.type === "session").length, 0);
+  assert.equal((await post("/api/session-switch", { on: true })).ok, false);
+  phone.close();
+  pc.close();
+});

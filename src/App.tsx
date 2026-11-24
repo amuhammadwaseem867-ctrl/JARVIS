@@ -48,6 +48,15 @@ function shareActivity(kind: 'user' | 'ai', text: string) {
   }).catch(() => {});
 }
 
+/** Tells the other devices that Connect or Terminate was pressed here. */
+function switchOtherDevices(on: boolean) {
+  fetch('/api/session-switch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ on, clientId: CLIENT_ID }),
+  }).catch(() => {});
+}
+
 function reportSession(on: boolean) {
   fetch('/api/session-state', {
     method: 'POST',
@@ -1857,9 +1866,27 @@ export default function App() {
       setStatus('READY');
       setAiraEmotion('READY');
       setUserEmotion('CHILL');
+      switchOtherDevices(false);
     } else {
       primeAudioForSession(); // must run inside the tap, before any await
+      switchOtherDevices(true);
       await startAiraSession();
+    }
+  };
+
+  /** Connect or Terminate pressed on the other device (phone or computer): follow it. */
+  const applyRemoteSwitch = (on: boolean, from: 'pc' | 'phone') => {
+    const where = from === 'phone' ? 'phone' : 'computer';
+    if (on && !isActive && !isConnectingRef.current) {
+      primeAudioForSession();
+      setSystemBanner(`Connected from your ${where}.`);
+      void startAiraSession();
+    } else if (!on && isActive) {
+      stopByUser();
+      setStatus('READY');
+      setAiraEmotion('READY');
+      setUserEmotion('CHILL');
+      setSystemBanner(`Stopped from your ${where}.`);
     }
   };
 
@@ -1896,8 +1923,8 @@ export default function App() {
   };
 
   // Wake word: saying "Ultron" switches the assistant on, no typing or clicking.
-  const wakeRefs = React.useRef({ isActive, startAiraSession, handleSendMessage });
-  wakeRefs.current = { isActive, startAiraSession, handleSendMessage };
+  const wakeRefs = React.useRef({ isActive, startAiraSession, handleSendMessage, applyRemoteSwitch });
+  wakeRefs.current = { isActive, startAiraSession, handleSendMessage, applyRemoteSwitch };
   const wakeRef = React.useRef<WakeWatcher | null>(null);
   React.useEffect(() => {
     const watcher = new WakeWatcher(
@@ -1930,6 +1957,7 @@ export default function App() {
       },
     );
     wakeRef.current = watcher;
+    watcher.onSessionSwitch = (on, from) => wakeRefs.current.applyRemoteSwitch(on, from);
     watcher.start();
     return () => watcher.stop();
   }, []);
