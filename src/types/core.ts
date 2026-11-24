@@ -253,7 +253,7 @@ export const DEFAULT_CORE_STATE: CoreStoreState = {
     },
     voice: {
       voiceName: 'Aoede',
-      modelId: 'gemini-3.1-flash-live-preview',
+      modelId: 'gemini-3.8-live',
       wakeWordEnabled: false,
       autoListen: true,
     },

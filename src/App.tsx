@@ -1673,6 +1673,10 @@ export default function App() {
       const tokenRes = await fetch('/api/live-token', { method: 'POST' });
       const tokenData = await tokenRes.json();
       if (tokenData?.ok) apiKey = tokenData.token || '';
+      else if (tokenData?.error && tokenData.error !== 'MISSING_API_KEY') {
+        // A key is set but Google refused it: say so instead of silently using local mode.
+        setTimeout(() => setSystemBanner(`GEMINI: ${tokenData.error} Using local mode for now.`), 1500);
+      }
     } catch (e) {
       console.warn('Failed to get a voice session token:', e);
     }

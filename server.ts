@@ -201,8 +201,14 @@ app.post("/api/live-token", async (_req, res) => {
     audit("live_token.issued", {});
     res.json({ ok: true, token: token.name });
   } catch (err: any) {
-    console.error("Failed to mint Live token:", err?.message);
-    res.status(502).json({ ok: false, error: "Could not create a voice session token. Check your Gemini key." });
+    const msg = String(err?.message || "");
+    console.error("Failed to mint Live token:", msg);
+    const hint = /API key not valid|API_KEY_INVALID|permission|403/i.test(msg)
+      ? "Google rejected the Gemini key. Create a new key at aistudio.google.com/apikey and paste it in Settings."
+      : /quota|429|RESOURCE_EXHAUSTED/i.test(msg)
+        ? "Gemini quota used up for now. Try later or enable billing in Google AI Studio."
+        : "Could not reach Gemini. Check the internet connection and the Gemini key.";
+    res.status(502).json({ ok: false, error: hint });
   }
 });
 
