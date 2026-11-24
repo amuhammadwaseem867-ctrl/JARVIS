@@ -6,7 +6,18 @@ const {
   shell,
   systemPreferences,
   desktopCapturer,
+  Tray,
+  Menu,
+  nativeImage,
+  globalShortcut,
 } = require('electron');
+
+// Ultron starts itself and wakes on "Ultron": allow audio without a click first.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+let tray = null;
+let quitting = false;
+// Start minimised when launched at login.
+const START_HIDDEN = process.argv.includes('--hidden') || app.getLoginItemSettings().wasOpenedAsHidden;
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -221,6 +232,9 @@ async function ensureBackendRunning() {
     }
   }
 
+  // The desktop app listens for "Ultron" by default (ULTRON_WAKE=0 in .env turns it off).
+  if (process.env.ULTRON_WAKE === undefined) process.env.ULTRON_WAKE = '1';
+
   if (fs.existsSync(distServer)) {
     require(distServer);
     serverStarted = true;
@@ -246,6 +260,8 @@ function createWindow(port) {
       webSecurity: true,
       webviewTag: true,
       spellcheck: false,
+      // Keep listening for the wake word while the window is hidden.
+      backgroundThrottling: false,
     },
   });
 
@@ -277,9 +293,66 @@ function createWindow(port) {
     }
   });
 
+  // Closing the window hides Ultron; it keeps listening. Quit from the tray.
+  mainWindow.on('close', (event) => {
+    if (!quitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+  if (START_HIDDEN) mainWindow.once('ready-to-show', () => mainWindow.hide());
+}
+
+function showWindow() {
+  if (!mainWindow) createWindow(activePort);
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+async function wake(source) {
+  showWindow();
+  try {
+    await fetch(`${appOrigin()}/api/wake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Ultron-Token': SESSION_TOKEN },
+      body: JSON.stringify({ source }),
+    });
+  } catch {}
+}
+
+/** Launch at login (hidden), tray menu and a global shortcut to wake Ultron. */
+function setupAlwaysOn() {
+  if (app.isPackaged && process.env.ULTRON_AUTOSTART !== '0') {
+    app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true, args: ['--hidden'] });
+  }
+  try {
+    const icon = nativeImage.createFromDataURL(
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAbElEQVR42u1XQQ4AIAjq/5+2D3TQFMFNNm+JrKXSOYthMGfQCkOEWDIghStzQmQduU+CqltsLf7NRxWA6mc3b0QA5OwvYTQndcgKZsQKmC2g7RHS25AyiHYXSKxjCUMiYcnoplTGlkt8TBYwXA6UJuiCiYw1AAAAAElFTkSuQmCC'
+    );
+    icon.setTemplateImage(true); // black ring; macOS tints it for light and dark menu bars
+    tray = new Tray(icon);
+    tray.setToolTip('Ultron');
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: 'Show Ultron', click: showWindow },
+        { label: 'Wake Ultron (Cmd/Ctrl+Shift+U)', click: () => wake('tray') },
+        { type: 'separator' },
+        {
+          label: 'Start at login',
+          type: 'checkbox',
+          checked: app.getLoginItemSettings().openAtLogin,
+          click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, openAsHidden: true, args: ['--hidden'] }),
+        },
+        { type: 'separator' },
+        { label: 'Quit Ultron', click: () => { quitting = true; app.quit(); } },
+      ])
+    );
+    tray.on('click', showWindow);
+  } catch {}
+  globalShortcut.register('CommandOrControl+Shift+U', () => wake('shortcut'));
 }
 
 function registerDesktopIpc() {
@@ -408,6 +481,7 @@ app.whenReady().then(async () => {
 
   registerDesktopIpc();
   const port = await ensureBackendRunning();
+  setupAlwaysOn();
   setTimeout(() => {
     createWindow(port);
     // Only auto-prompt macOS permissions ONCE on true first launch so it never nags repeatedly
@@ -428,15 +502,12 @@ app.whenReady().then(async () => {
     }, 1500);
   }, 500);
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow(activePort);
-    }
-  });
+  app.on('activate', showWindow);
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+app.on('before-quit', () => {
+  quitting = true;
 });
+app.on('will-quit', () => globalShortcut.unregisterAll());
+// Ultron stays running in the tray when its window is closed.
+app.on('window-all-closed', () => {});

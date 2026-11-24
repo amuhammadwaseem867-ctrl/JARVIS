@@ -29,6 +29,11 @@ The original code was read in full before anything was run. It was never execute
 
 At the owner's request, `ULTRON_FULL_CONTROL=1` re-enables shell commands, code-runner apps, all shortcuts and whole-home file access, and skips approval prompts. Kept even in this mode: loopback-only binding (enforced: the server exits if exposed), session token, Host/Origin checks, keys hidden from the browser, audit log, and a visible on-screen badge. Prompt injection can then lead to command execution; that risk is accepted by the owner.
 
+## Phone mode and wake word
+
+* **Phone mode** (`ULTRON_PHONE=1`) opens a second, HTTPS-only listener on the computer's private LAN address. Nothing on it works until a phone pairs with a single-use 6-digit code or QR token (10 minute expiry, 5 tries). A paired phone gets a random 256-bit cookie (HttpOnly, Secure, SameSite=Strict, 30 days); only its SHA-256 is stored. Host and Origin checks apply to the LAN address, and pairing management is refused from phones. The certificate is self-signed per computer, so the first visit shows a warning. Anyone on the same Wi-Fi can reach the pairing page but not the assistant. With Full Control on, a paired phone has the same power as the computer: unpair lost phones.
+* **Wake word** (`ULTRON_WAKE=1`): audio is transcribed locally with faster-whisper; no audio leaves the computer. The listener only posts a wake event to the loopback backend with the session token.
+
 ## Remaining risks (be aware)
 
 * Approving an action means it runs. Read the dialog; it shows exactly what will be typed, clicked or sent.

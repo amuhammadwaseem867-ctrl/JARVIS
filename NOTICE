@@ -10,6 +10,7 @@ The original README is kept as README.upstream.md.
 Files modified from the original: server.ts, python/system_agent.py,
 electron/main.cjs, src/App.tsx, src/main.tsx, src/components/CoreModals.tsx,
 src/services/geminiLiveService.ts, src/index.css, index.html, vite.config.ts,
-package.json, package-lock.json. New files: server/security.ts, server/localBrain.ts, src/services/localAssistantService.ts, src/security/*,
+package.json, package-lock.json. New files: server/security.ts, server/localBrain.ts, server/phone.ts, python/wake_listener.py,
+src/services/localAssistantService.ts, src/services/wakeWord.ts, src/security/*,
 src/styles/shadcn-tailwind.css (MIT, shadcn), tests/*, SECURITY.md, NOTICE.
 See SECURITY.md for what changed and why.

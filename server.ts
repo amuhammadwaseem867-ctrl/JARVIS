@@ -23,6 +23,24 @@ import {
   requireToken,
   securityHeaders,
 } from "./server/security";
+import https from "https";
+import {
+  PHONE_ENABLED,
+  PHONE_PORT,
+  addDevice,
+  cookieHeader,
+  forgetAllDevices,
+  initPhone,
+  isPairedCookie,
+  isPhoneRequest,
+  lanIp,
+  listDevices,
+  loadOrCreateCert,
+  newPairing,
+  pairPage,
+  phoneOrigin,
+  redeem,
+} from "./server/phone";
 import { LOCAL_HELP, ollamaChat, ollamaStatus, parseIntent, type ChatTurn } from "./server/localBrain";
 
 const APP_ROOT = process.env.AIRA_APP_ROOT || process.cwd();
@@ -40,6 +58,7 @@ const WHATSAPP_ENABLED = process.env.ULTRON_ENABLE_WHATSAPP === "1";
 // answers this computer with the session token.
 const FULL_CONTROL = process.env.ULTRON_FULL_CONTROL === "1";
 initAudit(CORE_DATA_DIR);
+initPhone(CORE_DATA_DIR);
 
 function str(value: unknown, max = 4000): string {
   return String(value ?? "").slice(0, max);
@@ -118,6 +137,29 @@ const HOST = process.env.ULTRON_HOST || "127.0.0.1";
 app.disable("x-powered-by");
 app.use(hostAndOriginGuard(PORT));
 app.use(securityHeaders(IS_PROD));
+/* ---------- Phone pairing (runs before the token check) ---------- */
+app.use((req, res, next) => {
+  if (!isPhoneRequest(req)) return next();
+  const finishPairing = (ok: string) => {
+    if (ok === "ok") {
+      res.setHeader("Set-Cookie", cookieHeader(addDevice(String(req.headers["user-agent"] || ""))));
+      audit("phone.paired", { device: String(req.headers["user-agent"] || "").slice(0, 80) });
+      return res.redirect(303, "/");
+    }
+    audit("phone.pair_failed", { result: ok });
+    res.status(ok === "expired" ? 410 : 401).type("html").send(pairPage(ok === "expired" ? "That code expired. Press Connect phone again on the computer." : "Wrong code. Try again."));
+  };
+  if (req.method === "GET" && req.path === "/pair" && typeof req.query.t === "string") {
+    return finishPairing(redeem({ token: req.query.t }));
+  }
+  if (req.method === "POST" && req.path === "/pair") {
+    return express.urlencoded({ extended: false, limit: "1kb" })(req, res, () => finishPairing(redeem({ code: req.body?.code })));
+  }
+  if (isPairedCookie(req.headers.cookie)) return next();
+  if (req.path.startsWith("/api/")) return res.status(401).json({ ok: false, error: "This phone is not paired." });
+  res.status(401).type("html").send(pairPage());
+});
+
 app.use("/api", requireToken);
 app.use(express.json({ limit: "8mb" }));
 
@@ -148,9 +190,61 @@ app.post("/api/live-token", async (_req, res) => {
   }
 });
 
-app.get("/api/capabilities", async (_req, res) => {
+app.get("/api/capabilities", async (req, res) => {
   const ollama = await ollamaStatus();
-  res.json({ ok: true, whatsapp: WHATSAPP_ENABLED, fullControl: FULL_CONTROL, platform: process.platform, gemini: Boolean(geminiKey()), ollama });
+  res.json({ ok: true, whatsapp: WHATSAPP_ENABLED, fullControl: FULL_CONTROL, phone: PHONE_ENABLED, onPhone: isPhoneRequest(req), platform: process.platform, gemini: Boolean(geminiKey()), ollama });
+});
+
+/* ---------- Phone management (computer only) ---------- */
+
+app.post("/api/phone/pair-code", async (_req, res) => {
+  if (!PHONE_ENABLED) return res.status(400).json({ ok: false, error: "Phone mode is off. Set ULTRON_PHONE=1 in .env and restart Ultron." });
+  const origin = phoneOrigin();
+  if (!origin) return res.status(503).json({ ok: false, error: "No Wi-Fi network found. Connect this computer to Wi-Fi." });
+  const { code, token, expires } = newPairing();
+  const url = `${origin}/pair?t=${token}`;
+  const qr = await QRCode.toDataURL(url, { margin: 1, width: 320, color: { dark: "#05070a", light: "#ffffff" } });
+  audit("phone.pair_code", {});
+  res.json({ ok: true, code, url: origin, qr, expires });
+});
+
+app.get("/api/phone/devices", (_req, res) => {
+  res.json({ ok: true, devices: listDevices() });
+});
+
+app.post("/api/phone/forget", (_req, res) => {
+  forgetAllDevices();
+  audit("phone.forget_all", {});
+  res.json({ ok: true });
+});
+
+/* ---------- Wake word ("Ultron") ---------- */
+
+const wakeClients = new Set<express.Response>();
+
+/** Streams wake events to the open Ultron windows (fetch-based SSE, token protected). */
+app.get("/api/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+  res.write(": connected\n\n");
+  wakeClients.add(res);
+  const ping = setInterval(() => res.write(": ping\n\n"), 25_000);
+  req.on("close", () => {
+    clearInterval(ping);
+    wakeClients.delete(res);
+  });
+});
+
+/** Called by the background wake listener (python/wake_listener.py) or the global shortcut. */
+app.post("/api/wake", (req, res) => {
+  const command = str(req.body?.command, 500).trim();
+  const source = str(req.body?.source, 20) || "listener";
+  audit("wake", { source, text: command });
+  const payload = `event: wake\ndata: ${JSON.stringify({ command, source })}\n\n`;
+  for (const client of wakeClients) client.write(payload);
+  res.json({ ok: true, delivered: wakeClients.size });
 });
 
 /**
@@ -1272,6 +1366,30 @@ app.post("/api/vision/emotion", async (req, res) => {
   }
 });
 
+/** Background "Ultron" wake-word listener (optional Python packages). */
+function startWakeListener(attempt = 0) {
+  const script = path.join(path.dirname(resolvePythonAgentPath()), "wake_listener.py");
+  if (!fs.existsSync(script)) return;
+  // -E only (not -I) so packages installed with "pip install --user" are found.
+  const child = spawn(PYTHON_BIN, ["-E", script], {
+    stdio: ["ignore", "ignore", "pipe"],
+    env: {
+      PATH: process.env.PATH || "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+      HOME: process.env.HOME || "",
+      ULTRON_URL: `http://127.0.0.1:${PORT}`,
+      ULTRON_SESSION_TOKEN: SESSION_TOKEN,
+      ULTRON_WAKE_MODEL: process.env.ULTRON_WAKE_MODEL || "",
+      ULTRON_WAKE_SENSITIVITY: process.env.ULTRON_WAKE_SENSITIVITY || "",
+    },
+  });
+  child.stderr.on("data", (d) => process.stderr.write(`[wake] ${d}`));
+  child.on("exit", (code) => {
+    if (code === 3) return; // optional packages not installed; message already printed
+    if (attempt < 5) setTimeout(() => startWakeListener(attempt + 1), 3000 * (attempt + 1));
+  });
+  process.on("exit", () => child.kill());
+}
+
 // Vite integration middleware setup
 async function startServer() {
   if (!IS_PROD) {
@@ -1305,6 +1423,22 @@ async function startServer() {
   if (HOST !== "127.0.0.1" && HOST !== "localhost" && HOST !== "::1") {
     console.warn(`WARNING: ULTRON_HOST=${HOST} exposes Ultron beyond this computer. The session token still protects it, but keep it on trusted networks only.`);
   }
+  if (PHONE_ENABLED) {
+    const ip = lanIp();
+    if (!ip) {
+      console.warn("Phone mode: no Wi-Fi network address found; phone access is off.");
+    } else {
+      try {
+        const creds = await loadOrCreateCert(ip);
+        https.createServer(creds, app).listen(PHONE_PORT, ip, () => {
+          console.log(`Phone mode: pair from Ultron on this computer (Connect phone). Phones reach it at https://${ip}:${PHONE_PORT}`);
+        });
+      } catch (err: any) {
+        console.error("Phone mode failed to start:", err?.message);
+      }
+    }
+  }
+  if (process.env.ULTRON_WAKE === "1") startWakeListener();
   app.listen(PORT, HOST, () => {
     const url = `http://localhost:${PORT}/#token=${SESSION_TOKEN}`;
     if (process.env.ULTRON_QUIET_URL !== "1") {
