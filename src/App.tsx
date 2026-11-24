@@ -34,7 +34,7 @@ import {
   FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { HologramCore } from '@/components/ui/hologram-core';
+import { ModuleTile, Reactor, TopHud } from '@/components/ui/command-deck';
 import { AIRALiveService, primeAudioForSession, type AIRALiveCallbacks } from './services/geminiLiveService';
 import { LocalAssistantService, type AssistantEngine } from './services/localAssistantService';
 import { CLIENT_ID, WakeWatcher } from './services/wakeWord';
@@ -107,23 +107,27 @@ const SidebarLeft = ({
 }) => {
   const [headlines, setHeadlines] = React.useState<{ id: number, title: string, url: string, summary: string, published_at: string }[]>([]);
   const [loadingNews, setLoadingNews] = React.useState(true);
+  const [newsError, setNewsError] = React.useState(false);
 
-  React.useEffect(() => {
-    fetchNews();
-  }, []);
-
-  const fetchNews = async () => {
+  const fetchNews = React.useCallback(async () => {
     setLoadingNews(true);
+    setNewsError(false);
     try {
-      const response = await fetch('https://api.spaceflightnewsapi.net/v4/articles?limit=5');
+      const response = await fetch('https://api.spaceflightnewsapi.net/v4/articles?limit=6');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      setHeadlines(data.results);
+      setHeadlines(Array.isArray(data.results) ? data.results : []);
     } catch (error) {
-      console.error('Error fetching news:', error);
+      console.warn('Headlines unavailable:', error);
+      setNewsError(true);
     } finally {
       setLoadingNews(false);
     }
-  };
+  }, []);
+
+  React.useEffect(() => {
+    void fetchNews();
+  }, [fetchNews]);
 
   return (
     <div className="w-80 flex flex-col gap-4 p-4 h-full shrink-0">
@@ -136,7 +140,6 @@ const SidebarLeft = ({
         }}
         className="glass-panel aspect-square flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-dash-card to-black/40 cursor-pointer group w-full border-none outline-none appearance-none p-0"
       >
-        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] pointer-events-none"></div>
         
         {isCameraOn ? (
           <video 
@@ -149,7 +152,8 @@ const SidebarLeft = ({
         ) : (
           <div className="flex flex-col items-center justify-center pointer-events-none">
             <CameraOff className="w-12 h-12 text-dash-text-muted mb-4 opacity-50 group-hover:opacity-80 transition-opacity" />
-            <span className="text-dash-text-muted text-[10px] font-mono tracking-[0.2em] uppercase">camera offline</span>
+            <span className="text-sm text-white/70">Camera is off</span>
+            <span className="text-xs text-dash-text-muted mt-1">Tap to let Ultron see</span>
           </div>
         )}
 
@@ -159,15 +163,17 @@ const SidebarLeft = ({
         
         <div className="absolute top-4 left-4 flex items-center gap-2 z-20 pointer-events-none">
           <div className={`w-2 h-2 rounded-full ${isCameraOn ? 'bg-dash-accent animate-pulse shadow-[0_0_8px_#00f2ff]' : 'bg-red-500/50'}`} />
-          <span className="text-[8px] font-bold text-white/50 uppercase tracking-widest">{isCameraOn ? 'Feed Live' : 'Not Connected'}</span>
+          <span className="text-[11px] font-medium text-white/70">{isCameraOn ? 'Camera live' : 'Camera off'}</span>
         </div>
 
         <div className="absolute bottom-3 left-3 right-14 flex flex-col items-start gap-1 z-20 pointer-events-none text-left">
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/65 border border-white/10 font-mono text-[8px] uppercase tracking-wider">
-            <span className="text-cyan-300">MOOD: {userEmotion}</span>
-            <span className="text-white/30">·</span>
-            <span className="text-emerald-300">TONE: {airaEmotion}</span>
-          </div>
+          {isCameraOn && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/65 border border-white/10 text-[11px] capitalize">
+              <span className="text-cyan-200">You: {String(userEmotion).toLowerCase()}</span>
+              <span className="text-white/30" aria-hidden="true">·</span>
+              <span className="text-emerald-200">Ultron: {String(airaEmotion).toLowerCase()}</span>
+            </div>
+          )}
           {isCameraOn && cameraInsight && (
             <span className="text-[9px] text-white/75 bg-black/60 px-2 py-0.5 rounded-md truncate max-w-full">
               {cameraInsight}
@@ -177,58 +183,75 @@ const SidebarLeft = ({
       </button>
 
       {/* Headlines Panel */}
-      <div className="glass-panel flex-1 p-6 flex flex-col gap-4 overflow-hidden">
+      <section aria-labelledby="headlines-title" className="glass-panel flex-1 p-5 flex flex-col gap-4 overflow-hidden min-h-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight text-white/90">Today Headlines</h2>
-          <div className="flex gap-2 text-dash-text-muted">
-             <History 
-              className="w-4 h-4 cursor-pointer hover:text-dash-accent transition-colors" 
-              onClick={fetchNews}
-             />
-             <Settings
-              className="w-4 h-4 cursor-pointer hover:text-dash-accent transition-colors"
+          <div>
+            <h2 id="headlines-title" className="text-base font-semibold tracking-tight text-white">Headlines</h2>
+            <p className="text-xs text-dash-text-muted mt-0.5">Space and science news</p>
+          </div>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => void fetchNews()}
+              aria-label="Refresh headlines"
+              className="w-9 h-9 grid place-items-center rounded-lg text-white/60 hover:text-dash-accent hover:bg-white/5 transition-colors"
+            >
+              <History className={`w-4 h-4 ${loadingNews ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              type="button"
               onClick={onOpenSettings}
-             />
+              aria-label="Open settings"
+              className="w-9 h-9 grid place-items-center rounded-lg text-white/60 hover:text-dash-accent hover:bg-white/5 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
           </div>
         </div>
-        
-        <div className="flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
-          {loadingNews ? (
+
+        <div className="flex flex-col gap-1 overflow-y-auto -mx-2 custom-scrollbar min-h-0">
+          {loadingNews && headlines.length === 0 ? (
             [1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex flex-col gap-2 animate-pulse">
-                <div className="h-3 w-full bg-dash-border/20 rounded-md" />
-                <div className="h-2 w-[60%] bg-dash-border/10 rounded-md" />
+              <div key={i} className="flex flex-col gap-2 px-2 py-3 animate-pulse">
+                <div className="h-3 w-full bg-white/10 rounded" />
+                <div className="h-3 w-3/4 bg-white/10 rounded" />
+                <div className="h-2 w-16 bg-white/5 rounded" />
               </div>
             ))
+          ) : newsError && headlines.length === 0 ? (
+            <div className="flex flex-col items-start gap-3 px-2 py-6">
+              <p className="text-sm text-white/80">Headlines could not load.</p>
+              <p className="text-xs text-dash-text-muted leading-relaxed">Check the internet connection, then try again.</p>
+              <button
+                type="button"
+                onClick={() => void fetchNews()}
+                className="h-9 px-4 rounded-lg border border-dash-accent/40 text-dash-accent text-xs font-semibold hover:bg-dash-accent/10 transition-colors"
+              >
+                Try again
+              </button>
+            </div>
+          ) : headlines.length === 0 ? (
+            <p className="text-sm text-dash-text-muted px-2 py-6">No headlines right now.</p>
           ) : (
             headlines.map((news) => (
-              <div 
-                key={news.id} 
-                className="flex flex-col gap-2 group cursor-pointer"
-                onClick={() => window.open(news.url, '_blank')}
+              <a
+                key={news.id}
+                href={news.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex flex-col gap-1.5 px-2 py-3 rounded-lg hover:bg-white/5 transition-colors"
               >
-                <h3 className="text-xs font-bold text-white/80 group-hover:text-dash-accent transition-colors line-clamp-2 uppercase tracking-wide">
+                <h3 className="text-[13px] leading-snug font-medium text-white/85 group-hover:text-white line-clamp-2">
                   {news.title}
                 </h3>
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] text-dash-text-muted uppercase font-mono tracking-tighter">
-                    {new Date(news.published_at).toLocaleDateString()}
-                  </span>
-                  <div className="w-1 h-1 rounded-full bg-dash-border/50" />
-                </div>
-              </div>
+                <span className="text-[11px] text-dash-text-muted">
+                  {new Date(news.published_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                </span>
+              </a>
             ))
           )}
         </div>
-        
-        <div className="mt-auto pt-4 border-t border-dash-border/30 flex items-center justify-between text-xs text-dash-text-muted">
-           <div className="flex items-center gap-2">
-             <div className="w-2 h-2 rounded-full bg-dash-accent/50" />
-             <span className="text-[9px] font-bold uppercase tracking-widest">Feed_Active</span>
-           </div>
-           <List className="w-4 h-4 hover:text-dash-accent cursor-pointer transition-colors" />
-        </div>
-      </div>
+      </section>
     </div>
   );
 };
@@ -357,243 +380,74 @@ const NeuralCoreDeck = ({
     return 'Ultron is listening';
   }, [isActive, status, airaEmotion]);
 
+  const tiles: Record<CoreNodeConfig['id'], { label: string; hint: string; color: string }> = {
+    memory: { label: 'Memory', hint: 'What Ultron remembers about you', color: '#22d3ee' },
+    skills: { label: 'Skills', hint: 'Leads, meetings, YouTube and more', color: '#34d399' },
+    character: { label: 'Character', hint: 'Voice and personality', color: '#f472b6' },
+    setting: { label: 'Settings', hint: 'Keys, phone link, full control', color: '#a5b4fc' },
+  };
+  const tile = (node: CoreNodeConfig, i: number) => (
+    <React.Fragment key={node.id}>
+    <ModuleTile
+      index={i + 1}
+      label={tiles[node.id].label}
+      hint={tiles[node.id].hint}
+      color={tiles[node.id].color}
+      icon={node.icon as any}
+      onClick={() => {
+        setSelectedNode(node.id);
+        onOpenModal(node.id);
+      }}
+    />
+    </React.Fragment>
+  );
+  const busy = status === 'INITIALIZING...' || status === 'CONNECTING...';
+
   return (
-    <div className="w-full h-full flex flex-col md:flex-row items-stretch relative select-none">
-      {/* Left 4 Chamfered Module Tabs */}
-      <div className="w-full md:w-[190px] lg:w-[205px] xl:w-[220px] shrink-0 flex flex-col justify-between gap-2 md:gap-0 md:py-1 z-10">
-        {CORE_NODES.map((node) => {
-          const Icon = node.icon;
-          const isSelected = selectedNode === node.id;
-          return (
-            <button
-              key={node.id}
-              type="button"
-              onClick={() => {
-                setSelectedNode(node.id);
-                onOpenModal(node.id);
-              }}
-              className="relative h-[50px] w-full text-left group cursor-pointer transition-transform duration-200 hover:translate-x-0.5"
-              style={{
-                clipPath:
-                  'polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px)',
-                background: isSelected ? node.lineColor : node.borderColor,
-              }}
-            >
-              <div
-                className="absolute inset-[1px] flex items-center px-2.5"
-                style={{
-                  clipPath:
-                    'polygon(10.5px 0, 100% 0, 100% calc(100% - 10.5px), calc(100% - 10.5px) 100%, 0 100%, 0 10.5px)',
-                  background: node.surfaceGradient,
-                }}
-              >
-                <div
-                  className={`w-8 h-8 rounded-[6px] border flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${node.iconBoxClass}`}
-                >
-                  <Icon className={`w-4 h-4 ${node.iconClass}`} />
-                </div>
-                <span className="ml-3 text-[11px] font-bold tracking-[0.22em] text-slate-100 uppercase truncate">
-                  {node.label}
-                </span>
-                <span
-                  className="ml-auto mr-1 w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{
-                    backgroundColor: node.dotColor,
-                    boxShadow: `0 0 8px ${node.dotColor}`,
-                  }}
-                />
-              </div>
-            </button>
-          );
-        })}
+    <div className="relative grid w-full h-full grid-cols-2 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(280px,340px)_minmax(0,1fr)] select-none">
+      <div className="order-2 md:order-none col-span-2 md:col-span-1 grid grid-cols-2 gap-3 md:flex md:flex-col">
+        {CORE_NODES.slice(0, 2).map((n, i) => tile(n, i))}
       </div>
 
-      {/* Middle Orthogonal + 45-deg Circuit Trace Lines */}
-      <div className="hidden md:block flex-1 min-w-[90px] relative py-1 pointer-events-none">
-        <div className="relative w-full h-full">
-          <svg
-            className="w-full h-full overflow-visible"
-            viewBox="0 0 200 300"
-            preserveAspectRatio="none"
-          >
-            {CORE_NODES.map((node, idx) => (
-              <g key={node.id}>
-                {/* Soft glow trace */}
-                <path
-                  d={node.pathD}
-                  fill="none"
-                  stroke={node.lineColor}
-                  strokeWidth="4"
-                  strokeOpacity="0.22"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {/* Crisp primary trace */}
-                <motion.path
-                  d={node.pathD}
-                  fill="none"
-                  stroke={node.lineColor}
-                  strokeWidth="1.5"
-                  strokeOpacity="0.85"
-                  vectorEffect="non-scaling-stroke"
-                  initial={{ pathLength: 0.2, opacity: 0.4 }}
-                  animate={{ pathLength: 1, opacity: 0.9 }}
-                  transition={{ duration: 0.9, delay: idx * 0.1, ease: 'easeOut' }}
-                />
-                {/* Animated data pulse */}
-                <path
-                  d={node.pathD}
-                  fill="none"
-                  stroke="#ffffff"
-                  strokeWidth="1.5"
-                  strokeOpacity="0.55"
-                  strokeDasharray="6 34"
-                  vectorEffect="non-scaling-stroke"
-                  className="animate-dash"
-                />
-              </g>
-            ))}
-          </svg>
-
-          {/* Circular junction dots so aspect scaling never stretches them */}
-          {CORE_NODES.map((node) => (
-            <React.Fragment key={`dots-${node.id}`}>
-              <span
-                className="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  left: node.dotPos.x,
-                  top: node.dotPos.y,
-                  backgroundColor: node.dotColor,
-                  boxShadow: `0 0 8px ${node.dotColor}`,
-                }}
-              />
-              <span
-                className="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  left: node.elbow1.x,
-                  top: node.elbow1.y,
-                  backgroundColor: node.dotColor,
-                  boxShadow: `0 0 8px ${node.dotColor}`,
-                }}
-              />
-              <span
-                className="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2 opacity-80"
-                style={{
-                  left: node.elbow2.x,
-                  top: node.elbow2.y,
-                  backgroundColor: node.dotColor,
-                  boxShadow: `0 0 6px ${node.dotColor}`,
-                }}
-              />
-            </React.Fragment>
-          ))}
+      {/* Reactor chamber */}
+      <section aria-label="Ultron voice" className="order-1 md:order-none col-span-2 md:col-span-1 glass-panel hud-corners relative flex flex-col items-center overflow-hidden px-5 pt-3 pb-5">
+        <div className="pointer-events-none absolute inset-0 hud-grid opacity-60" aria-hidden="true" />
+        <div className="relative w-full max-w-[290px] md:max-w-[250px]">
+          <Reactor isActive={isActive} audioLevel={audioLevel} />
         </div>
-      </div>
 
-      {/* Right Column: Octagonal Hologram Chamber */}
-      <div className="w-full md:w-[320px] lg:w-[335px] xl:w-[365px] shrink-0 flex flex-col mt-3 md:mt-0">
-        {/* Octagonal Chamber */}
-        <div
-          className="relative flex-1 min-h-[300px]"
-          style={{
-            clipPath:
-              'polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px)',
-            background:
-              'linear-gradient(180deg, rgba(34, 211, 238, 0.48) 0%, rgba(20, 95, 125, 0.35) 50%, rgba(34, 211, 238, 0.42) 100%)',
-          }}
-        >
-          <div
-            className="absolute inset-[1px] overflow-hidden flex flex-col justify-end"
-            style={{
-              clipPath:
-                'polygon(17.5px 0, calc(100% - 17.5px) 0, 100% 17.5px, 100% calc(100% - 17.5px), calc(100% - 17.5px) 100%, 17.5px 100%, 0 calc(100% - 17.5px), 0 17.5px)',
-              background:
-                'radial-gradient(circle at 50% 42%, #071928 0%, #040910 65%, #020509 100%)',
-            }}
-          >
-            {/* Subtle square grid inside chamber */}
-            <div
-              className="pointer-events-none absolute inset-0 opacity-30"
-              style={{
-                backgroundImage:
-                  'linear-gradient(to right, rgba(34, 211, 238, 0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(34, 211, 238, 0.12) 1px, transparent 1px)',
-                backgroundSize: '24px 24px',
-              }}
-            />
-
-            {/* Left wall port indicator dot */}
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8] z-20" />
-
-            {/* Hologram Bust */}
-            <div className="absolute inset-x-0 top-1 bottom-[74px] flex items-center justify-center">
-              <HologramCore isActive={isActive} audioLevel={audioLevel} />
-            </div>
-
-            {/* Bottom Status + Hexagonal Action Button + Mic */}
-            <div className="relative z-20 w-full flex flex-col items-center gap-2.5 pb-4 pt-2 bg-gradient-to-t from-[#03070c] via-[#03070c]/85 to-transparent">
-              <div className="flex items-center gap-2 text-[12px] font-medium text-slate-200 tracking-wide">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isActive
-                      ? 'bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse'
-                      : 'bg-cyan-400/90 shadow-[0_0_6px_#22d3ee]'
-                  }`}
-                />
-                <span>{statusLabel}</span>
-              </div>
-
-              <div className="flex items-center justify-center gap-3">
-                {/* Hexagonal Chamfered Connect / Terminate Button */}
-                <button
-                  type="button"
-                  onClick={onToggle}
-                  className="relative w-[176px] h-[36px] cursor-pointer group transition-transform active:scale-[0.98]"
-                  style={{
-                    clipPath:
-                      'polygon(11px 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 11px 100%, 0 50%)',
-                    background: isActive
-                      ? 'rgba(239, 68, 68, 0.72)'
-                      : 'rgba(34, 211, 238, 0.65)',
-                  }}
-                >
-                  <div
-                    className="absolute inset-[1px] flex items-center justify-center transition-colors"
-                    style={{
-                      clipPath:
-                        'polygon(10.5px 0, calc(100% - 10.5px) 0, 100% 50%, calc(100% - 10.5px) 100%, 10.5px 100%, 0 50%)',
-                      background: isActive
-                        ? 'linear-gradient(180deg, rgba(44, 12, 16, 0.95) 0%, rgba(26, 8, 11, 0.98) 100%)'
-                        : 'linear-gradient(180deg, rgba(10, 38, 48, 0.95) 0%, rgba(6, 20, 28, 0.98) 100%)',
-                    }}
-                  >
-                    <span
-                      className={`text-[11px] font-bold tracking-[0.26em] uppercase ${
-                        isActive
-                          ? 'text-red-400 group-hover:text-red-300'
-                          : 'text-cyan-300 group-hover:text-cyan-200'
-                      }`}
-                    >
-                      {isActive ? 'TERMINATE' : 'CONNECT'}
-                    </span>
-                  </div>
-                </button>
-
-                {/* Circular Mic Button */}
-                <button
-                  type="button"
-                  onClick={onToggle}
-                  aria-label={isActive ? 'Mute or disconnect microphone' : 'Activate voice'}
-                  className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
-                    isActive
-                      ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
-                      : 'border-cyan-500/40 bg-cyan-950/35 text-cyan-400 hover:border-cyan-400/70 hover:bg-cyan-500/15'
-                  }`}
-                >
-                  <Mic className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="relative mt-1 flex items-center gap-2 text-[13px] text-white/80" role="status" aria-live="polite">
+          <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-cyan-300 shadow-[0_0_8px_#22d3ee] animate-pulse' : busy ? 'bg-amber-300 animate-pulse' : 'bg-cyan-400/70'}`} />
+          {statusLabel}
         </div>
+
+        <div className="relative mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onToggle}
+            className={`h-11 min-w-[168px] rounded-full px-6 text-[14px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
+              isActive
+                ? 'border border-red-400/50 bg-red-500/10 text-red-200 hover:bg-red-500/20'
+                : 'bg-gradient-to-r from-cyan-300 to-cyan-500 text-[#00161a] shadow-[0_8px_30px_rgba(0,229,242,.35)] hover:shadow-[0_8px_40px_rgba(0,229,242,.5)]'
+            }`}
+          >
+            {isActive ? 'End session' : busy ? 'Connecting…' : 'Connect'}
+          </button>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={isActive ? 'Stop listening' : 'Start talking'}
+            className={`grid h-11 w-11 place-items-center rounded-full border transition-colors ${
+              isActive ? 'border-cyan-300/70 bg-cyan-400/15 text-cyan-200' : 'border-white/15 bg-white/[0.04] text-cyan-300 hover:border-cyan-300/60'
+            }`}
+          >
+            <Mic className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+      </section>
+
+      <div className="order-3 md:order-none col-span-2 md:col-span-1 grid grid-cols-2 gap-3 md:flex md:flex-col">
+        {CORE_NODES.slice(2, 4).map((n, i) => tile(n, i + 2))}
       </div>
     </div>
   );
@@ -1006,16 +860,16 @@ const VisualHub = ({
   onOpenPermissions?: () => void;
 }) => {
   return (
-    <div className="glass-panel flex-1 min-h-[450px] flex flex-col p-10 bg-gradient-to-b from-[#0a0a0a] to-dash-bg relative overflow-hidden group border-white/5 ring-1 ring-white/5">
+    <div className="glass-panel flex-1 min-h-[380px] lg:min-h-0 flex flex-col p-5 md:p-8 bg-gradient-to-b from-[#0a0a0a] to-dash-bg relative overflow-hidden group border-white/5 ring-1 ring-white/5">
       <div className="absolute top-0 right-0 w-[60%] h-[60%] bg-dash-accent/5 blur-[120px] pointer-events-none" />
       <div className="absolute -bottom-20 -left-20 w-[40%] h-[40%] bg-dash-red/5 blur-[100px] pointer-events-none" />
       
-      <div className="flex items-center justify-between mb-10 relative z-10">
+      <div className="flex items-center justify-between mb-6 relative z-10">
         <div className="flex items-center gap-4">
            <div className={`w-3 h-3 rounded-full ${activeVisual ? 'bg-dash-accent animate-pulse shadow-[0_0_10px_#00f2ff]' : 'bg-white/10'}`} />
            <div className="flex flex-col">
-             <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] italic">Visual_Intelligence_Node</h2>
-             <p className="text-[9px] text-dash-text-muted uppercase font-mono tracking-widest">{activeVisual ? 'Analysis_Online / Source: Ultron_Core' : 'Awaiting_Command_Input'}</p>
+             <h2 className="text-base font-semibold text-white tracking-tight">Workspace</h2>
+             <p className="text-xs text-dash-text-muted mt-0.5">{activeVisual ? 'Showing what Ultron made for you' : 'Charts, plans and diagrams from Ultron appear here'}</p>
            </div>
         </div>
         
@@ -1072,9 +926,9 @@ const VisualHub = ({
           </motion.div>
         ) : (
           <div className="flex flex-col items-center gap-6">
-             <div className="flex flex-col items-center gap-6 opacity-40">
-               <div className="p-8 rounded-full border-2 border-dashed border-white/20 bg-white/5 relative">
-                  <BrainCircuit className="w-16 h-16 text-white" />
+             <div className="flex flex-col items-center gap-6">
+               <div className="p-7 rounded-full border border-white/10 bg-white/[0.03] relative">
+                  <BrainCircuit className="w-12 h-12 text-white/50" />
                   <motion.div 
                     animate={{ rotate: 360 }}
                     transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
@@ -1082,8 +936,8 @@ const VisualHub = ({
                   />
                </div>
                <div className="flex flex-col items-center gap-2">
-                  <h3 className="text-2xl font-black text-white uppercase tracking-widest italic">Awaiting Input</h3>
-                  <p className="text-xs text-dash-text-muted uppercase tracking-[0.2em]">Ultron is ready for voice, vision &amp; system control.</p>
+                  <h3 className="text-xl font-semibold text-white tracking-tight">Ready when you are</h3>
+                  <p className="text-sm text-dash-text-muted text-center max-w-sm leading-relaxed">Say "Ultron" or press Connect, then ask for anything: open apps, find leads, prepare a meeting.</p>
                </div>
              </div>
 
@@ -1092,18 +946,18 @@ const VisualHub = ({
                <button
                  type="button"
                  onClick={() => onRunPythonAction('open_app', 'WhatsApp')}
-                 className="px-3.5 py-2 rounded-xl bg-cyan-500/10 border border-cyan-400/30 hover:bg-cyan-500/20 text-cyan-300 text-[11px] font-mono uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors"
+                 className="h-10 px-4 rounded-xl bg-cyan-500/10 border border-cyan-400/30 hover:bg-cyan-500/20 text-cyan-200 text-[13px] font-medium flex items-center gap-2 cursor-pointer transition-colors"
                >
-                 <Zap className="w-3.5 h-3.5" />
-                 Open WhatsApp.app
+                 <Zap className="w-4 h-4" />
+                 Open WhatsApp
                </button>
                <button
                  type="button"
                  onClick={() => onRunPythonAction('status')}
-                 className="px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/10 hover:border-cyan-400/35 text-slate-300 text-[11px] font-mono uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors"
+                 className="h-10 px-4 rounded-xl bg-white/[0.04] border border-white/10 hover:border-cyan-400/35 text-slate-200 text-[13px] font-medium flex items-center gap-2 cursor-pointer transition-colors"
                >
-                 <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-                 Python System Status
+                 <Cpu className="w-4 h-4 text-cyan-400" />
+                 Check PC status
                </button>
              </div>
 
@@ -1151,15 +1005,15 @@ const SidebarRight = ({
   };
 
   return (
-    <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 border-l border-white/5 bg-dash-bg flex flex-col h-full relative z-20 transition-all duration-300">
+    <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 border-l border-cyan-300/10 bg-[#060a0f]/75 backdrop-blur-xl flex flex-col h-full relative z-20 transition-all duration-300">
       <div className="flex flex-col h-full ring-1 ring-white/5 shadow-2xl">
         <div className="p-4 pb-3 flex items-center justify-between border-b border-white/5 bg-black/20 backdrop-blur-md">
           <div className="flex flex-col">
             <div className="flex items-center gap-2 mb-1">
               <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-dash-accent animate-pulse shadow-[0_0_8px_#00f2ff]' : 'bg-red-500'}`} />
-              <h2 className="text-lg font-black text-white italic tracking-tighter uppercase">ULTRON</h2>
+              <h2 className="text-base font-semibold text-white tracking-tight">Conversation</h2>
             </div>
-            <p className="text-[9px] text-dash-text-muted font-mono tracking-widest uppercase">Command_Interface / {status === 'LOCAL MODE' ? 'local' : isActive ? 'active' : 'idle'}</p>
+            <p className="text-xs text-dash-text-muted">{status === 'LOCAL MODE' ? 'Local mode, no API key' : isActive ? 'Live' : 'Not connected'}</p>
           </div>
           <div className="flex gap-2">
             <button 
@@ -1221,7 +1075,7 @@ const SidebarRight = ({
                       <p className={`text-[13px] leading-relaxed font-sans ${msg.type === 'user' ? 'text-white/85' : 'text-white'}`}>
                         {msg.text}
                       </p>
-                      <span className={`absolute -bottom-5 ${msg.type === 'user' ? 'right-0' : 'left-0'} text-[7px] font-mono text-white/20 tracking-widest uppercase`}>
+                      <span className={`absolute -bottom-5 ${msg.type === 'user' ? 'right-0' : 'left-0'} text-[10px] text-white/35`}>
                         {msg.time}
                       </span>
                     </div>
@@ -1230,9 +1084,10 @@ const SidebarRight = ({
               </AnimatePresence>
 
               {!isActive && messages.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 opacity-20 mt-20">
-                  <MicOff className="w-16 h-16 text-dash-text-muted" />
-                  <p className="text-xs uppercase tracking-widest font-mono">Activate Ultron to start the conversation.</p>
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 mt-20 px-6">
+                  <MicOff className="w-10 h-10 text-white/25" />
+                  <p className="text-sm text-white/70">No conversation yet</p>
+                  <p className="text-xs text-dash-text-muted leading-relaxed">Press Connect or say "Ultron". What you and Ultron say shows here, on your PC and phone.</p>
                 </div>
               )}
            </div>
@@ -1273,8 +1128,9 @@ const SidebarRight = ({
                   disabled={!isActive}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder={isActive ? "Message Ultron..." : "ACTIVATE TO INPUT..."}
-                  className="flex-1 bg-transparent border-none focus:outline-none text-[11px] text-white font-medium placeholder:text-dash-text-muted/50 tracking-wide disabled:cursor-not-allowed px-1"
+                  placeholder={isActive ? "Message Ultron" : "Connect to type a message"}
+                  aria-label="Message Ultron"
+                  className="flex-1 bg-transparent border-none focus:outline-none text-[13px] text-white placeholder:text-dash-text-muted disabled:cursor-not-allowed px-1"
                 />
                 <button 
                   onClick={handleSend}
@@ -1286,11 +1142,9 @@ const SidebarRight = ({
               </div>
            </div>
            
-           <div className="flex items-center justify-between text-[8px] font-mono text-dash-text-muted/40 uppercase tracking-[0.3em]">
+           <div className="flex items-center justify-between text-[11px] text-dash-text-muted">
              <div className="flex items-center gap-3">
-               <span className={isActive ? "text-dash-accent" : ""}>{isActive ? 'Ultron_Live' : 'Offline'}</span>
-               <div className="w-1 h-1 rounded-full bg-dash-accent/30" />
-               <span>Latency: {isActive ? '24ms' : '--'}</span>
+               <span className={isActive ? "text-dash-accent" : ""}>{isActive ? 'Live' : 'Offline'}</span>
              </div>
              {isActive && (
                <div className="flex gap-0.5 items-end h-2.5">
@@ -1968,10 +1822,7 @@ export default function App() {
   return (
     <div className="flex flex-col lg:flex-row lg:h-screen w-full bg-dash-bg text-white lg:overflow-hidden overflow-y-auto selection:bg-dash-accent/30 relative">
       {/* Background Decorative Elements */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-30">
-         <div className="absolute top-[10%] left-[-5%] w-[40%] h-[40%] rounded-full blur-[120px] bg-dash-accent/10 sm:block hidden" />
-         <div className="absolute bottom-[20%] right-[-5%] w-[35%] h-[35%] rounded-full blur-[100px] bg-dash-red/5 sm:block hidden" />
-      </div>
+      <div className="ultron-backdrop fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true" />
 
       {/* Sidebar Left - Hidden on small mobile or shown differently */}
       <div className="hidden xl:block">
@@ -1988,8 +1839,12 @@ export default function App() {
 
       {/* Center Content */}
       <div className="flex-1 min-w-0 flex flex-col gap-4 p-4 min-h-0 relative z-10">
+        <TopHud
+          isActive={isActive}
+          statusText={status === 'LOCAL MODE' ? 'Local mode, no API key needed.' : isActive ? 'Listening and ready to act.' : 'Say "Ultron" or press Connect.'}
+        />
         {/* Top Section */}
-        <div className="flex flex-col md:flex-row gap-4 h-auto lg:h-[350px]">
+        <div className="flex flex-col md:flex-row gap-4 h-auto lg:h-[372px] shrink-0">
           <NeuralCoreDeck
             onOpenModal={(nodeId) => {
               if (nodeId === 'memory') setIsMemoryOpen(true);
@@ -2214,7 +2069,7 @@ export default function App() {
                   </p>
                   <div className="mt-auto pt-8 border-t border-white/5 flex flex-col gap-4">
                     <div className="flex justify-between text-[10px] uppercase font-mono text-white/30">
-                      <span>Source: Ultron_Core</span>
+                      <span>Made by Ultron</span>
                       <span>{activeVisual.timestamp}</span>
                     </div>
                   </div>

@@ -64,8 +64,94 @@
   }
 }
 
+@layer components {
+/* ---------- Futuristic HUD surfaces ---------- */
 .glass-panel {
-  @apply bg-dash-card backdrop-blur-md border border-dash-border rounded-3xl;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 229, 242, 0.12);
+  background:
+    linear-gradient(180deg, rgba(14, 26, 36, 0.62) 0%, rgba(6, 11, 16, 0.72) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 60px -20px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+/* Corner brackets, like a targeting frame */
+.hud-corners::before,
+.hud-corners::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  border-color: rgba(0, 229, 242, 0.7);
+  border-style: solid;
+  z-index: 2;
+}
+.hud-corners::before { top: 8px; left: 8px; border-width: 1.5px 0 0 1.5px; border-top-left-radius: 6px; }
+.hud-corners::after { bottom: 8px; right: 8px; border-width: 0 1.5px 1.5px 0; border-bottom-right-radius: 6px; }
+
+.hud-grid {
+  background-image:
+    linear-gradient(rgba(0, 229, 242, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 242, 0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(circle at 50% 42%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 0%, transparent 72%);
+}
+
+.hud-tile {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(16, 26, 34, 0.7), rgba(8, 12, 17, 0.75));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+.hud-tile:hover {
+  border-color: color-mix(in srgb, var(--tile) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tile) 15%, transparent), 0 16px 40px -18px var(--tile);
+  transform: translateY(-1px);
+}
+.hud-tile:focus-visible { outline: 2px solid var(--tile); outline-offset: 2px; }
+
+.font-display { font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; }
+
+/* Page backdrop: deep space glow, faint horizon grid */
+.ultron-backdrop {
+  background:
+    radial-gradient(1100px 520px at 50% -12%, rgba(0, 229, 242, 0.13), transparent 62%),
+    radial-gradient(700px 480px at 100% 110%, rgba(129, 92, 255, 0.08), transparent 60%),
+    radial-gradient(600px 420px at -10% 100%, rgba(0, 229, 242, 0.06), transparent 60%),
+    #04070b;
+}
+.ultron-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 34%;
+  background-image:
+    linear-gradient(rgba(0, 229, 242, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 242, 0.07) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: perspective(600px) rotateX(62deg);
+  transform-origin: bottom;
+  mask-image: linear-gradient(to top, #000, transparent 85%);
+  -webkit-mask-image: linear-gradient(to top, #000, transparent 85%);
+}
+
+}
+
+@keyframes reactor-spin { to { transform: rotate(360deg); } }
+.reactor-spin, .reactor-spin-slow, .reactor-spin-back { transform-origin: 200px 200px; transform-box: view-box; }
+.reactor-spin { animation: reactor-spin 14s linear infinite; }
+.reactor-spin-back { animation: reactor-spin 22s linear infinite reverse; }
+.reactor-spin-slow { animation: reactor-spin 90s linear infinite; }
+.reactor.is-live .reactor-spin { animation-duration: 5s; }
+.reactor.is-live .reactor-spin-back { animation-duration: 8s; }
+@media (prefers-reduced-motion: reduce) {
+  .reactor-spin, .reactor-spin-back, .reactor-spin-slow { animation: none; }
 }
 
 .glow-accent {
