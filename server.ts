@@ -42,6 +42,7 @@ import {
   phoneOrigin,
   redeem,
 } from "./server/phone";
+import { ActionDeduper, addClient, broadcastActivity, broadcastWake, setSessionOn } from "./server/activity";
 import { LOCAL_HELP, ollamaChat, ollamaStatus, parseIntent, type ChatTurn } from "./server/localBrain";
 
 const APP_ROOT = process.env.AIRA_APP_ROOT || process.cwd();
@@ -242,20 +243,18 @@ app.post("/api/phone/forget", (_req, res) => {
 
 /* ---------- Wake word ("Ultron") ---------- */
 
-const wakeClients = new Set<express.Response>();
-
-/** Streams wake events to the open Ultron windows (fetch-based SSE, token protected). */
+/** One shared event stream: wake words and live activity for the computer and phones. */
 app.get("/api/events", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
   res.write(": connected\n\n");
-  wakeClients.add(res);
+  const remove = addClient(res, isPhoneRequest(req), str(req.query.client, 40));
   const ping = setInterval(() => res.write(": ping\n\n"), 25_000);
   req.on("close", () => {
     clearInterval(ping);
-    wakeClients.delete(res);
+    remove();
   });
 });
 
@@ -264,9 +263,21 @@ app.post("/api/wake", (req, res) => {
   const command = str(req.body?.command, 500).trim();
   const source = str(req.body?.source, 20) || "listener";
   audit("wake", { source, text: command });
-  const payload = `event: wake\ndata: ${JSON.stringify({ command, source })}\n\n`;
-  for (const client of wakeClients) client.write(payload);
-  res.json({ ok: true, delivered: wakeClients.size });
+  res.json({ ok: true, delivered: broadcastWake({ command, source }) });
+});
+
+/** A window says whether its voice session is on, so wake words are not doubled. */
+app.post("/api/session-state", (req, res) => {
+  res.json({ ok: setSessionOn(str(req.body?.clientId, 40), req.body?.on === true) });
+});
+
+/** A window shares what was said, so the computer and the phone show the same conversation. */
+app.post("/api/activity", (req, res) => {
+  const kind = req.body?.kind;
+  const text = str(req.body?.text, 2000).trim();
+  if (!text || (kind !== "user" && kind !== "ai")) return res.status(400).json({ ok: false, error: "kind and text are required." });
+  const clientId = str(req.body?.clientId, 40);
+  res.json({ ok: true, delivered: broadcastActivity({ from: isPhoneRequest(req) ? "phone" : "pc", kind, text, clientId }) });
 });
 
 /**
@@ -1209,6 +1220,8 @@ app.post("/api/approvals", (req, res) => {
   res.json({ ok: true, approvalId: createGrant(action) });
 });
 
+const actionDeduper = new ActionDeduper();
+
 app.post("/api/system/action", async (req, res) => {
   const payload = sanitizeAction(req.body);
   const risk = FULL_CONTROL ? "auto" : classifyAction(payload);
@@ -1219,8 +1232,15 @@ app.post("/api/system/action", async (req, res) => {
   if (risk === "confirm" && !consumeGrant(req.body?.approvalId, payload)) {
     return res.status(403).json({ ok: false, needsApproval: true, approve: payload, error: "This action needs your approval in Ultron." });
   }
+  if (actionDeduper.isRepeat(payload)) {
+    audit("system.repeat_skipped", { action: payload.action, target: payload.target });
+    return res.json({ ok: true, repeated: true, message: "Already done a moment ago; not repeated." });
+  }
   audit("system.action", { action: payload.action, risk, target: payload.target, operation: payload.operation, path: payload.path, keys: payload.keys, text: payload.text });
-  res.json(await runPythonSystemAgent(payload));
+  const result = await runPythonSystemAgent(payload);
+  const what = [payload.action, payload.target || payload.preset || payload.keys || ""].filter(Boolean).join(" ");
+  broadcastActivity({ from: isPhoneRequest(req) ? "phone" : "pc", kind: "action", text: `${what}: ${result?.ok ? "done" : result?.error || "failed"}` });
+  res.json(result);
 });
 
 // Old route name, kept so nothing silently bypasses the policy.

@@ -75,7 +75,11 @@ export class AIRALiveService {
   private audioQueue: Int16Array[] = [];
   private isProcessingAudio = false;
   private nextStartTime = 0;
-  private activeSource: AudioBufferSourceNode | null = null;
+  private playing = new Set<AudioBufferSourceNode>();
+  private micStream: MediaStream | null = null;
+  private closedByUs = false;
+  private userText = "";
+  private aiText = "";
   private lastProcessedAudioChunk: string | null = null;
   private lastVideoFrameTime = 0;
   private voiceName: string = "Aoede";
@@ -97,6 +101,24 @@ export class AIRALiveService {
     this.voiceName = voiceName || "Aoede";
     this.systemInstructionOverride = options?.systemInstruction;
     this.modelIdOverride = options?.modelId;
+  }
+
+  private flushUserText() {
+    const t = this.userText.trim();
+    this.userText = "";
+    if (t) this.callbacks.onTranscription(t, true);
+  }
+
+  private flushAiText() {
+    const t = this.aiText.trim();
+    this.aiText = "";
+    if (t) this.callbacks.onTranscription(t, false);
+  }
+
+  /** True while Ultron's own voice is playing (plus a short tail for room echo). */
+  private isSpeaking(): boolean {
+    const ctx = this.audioContext;
+    return Boolean(ctx && this.playing.size > 0) || Boolean(ctx && ctx.currentTime < this.nextStartTime + 0.35);
   }
 
   public setVoice(voiceName: string) {
@@ -129,6 +151,7 @@ export class AIRALiveService {
 
   async connect() {
     this.terminate();
+    this.closedByUs = false;
     this.callbacks.onStatusChange("INITIALIZING...");
     
     // Warm up audio context on user gesture
@@ -284,20 +307,23 @@ export class AIRALiveService {
                   }
                 }
 
-                // Handle text transcription from parts
-                if (part.text) {
-                  const transcripts = (message as any).transcription;
-                  if (!transcripts || transcripts.text !== part.text) {
-                    this.callbacks.onTranscription(part.text, false);
-                  }
-                }
               }
             }
-            
-            // Handle specialized transcription fields
-            const transcripts = (message as any).transcription;
-            if (transcripts) {
-               this.callbacks.onTranscription(transcripts.text, transcripts.source === 'user');
+
+            // Live transcripts arrive in small pieces; show each side once per turn.
+            const sc: any = message.serverContent;
+            if (sc?.inputTranscription?.text) this.userText += sc.inputTranscription.text;
+            if (sc?.outputTranscription?.text) {
+              this.flushUserText(); // the model is answering, so the user's turn is over
+              this.aiText += sc.outputTranscription.text;
+            }
+            if (sc?.turnComplete || sc?.interrupted) {
+              this.flushUserText();
+              this.flushAiText();
+            }
+            if ((message as any).goAway) {
+              // Google is about to end this connection; tell the app to reconnect.
+              this.callbacks.onSystemEvent?.("GEMINI", "Session time limit reached. Reconnecting.");
             }
 
             // Handle interruptions
@@ -472,12 +498,14 @@ export class AIRALiveService {
             }
           },
           onclose: (ev: any) => {
+            if (this.closedByUs) return;
             const reason = String(ev?.reason || "").trim();
             if (reason) this.callbacks.onSystemEvent?.("GEMINI", `Connection closed: ${reason.slice(0, 200)}`);
             this.callbacks.onStatusChange("DISCONNECTED");
             this.stopMic();
           },
           onerror: (err) => {
+            if (this.closedByUs) return;
             console.error("Live session error:", err);
             this.callbacks.onSystemEvent?.("GEMINI", `Error: ${String((err as any)?.message || err).slice(0, 200)}`);
             this.callbacks.onStatusChange("ERROR");
@@ -502,7 +530,15 @@ export class AIRALiveService {
 
   private async startMic() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Echo cancellation keeps Ultron from hearing its own voice through the speakers.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+      });
+      if (this.closedByUs) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      this.micStream = stream;
       const ctx = await this.getAudioContext();
       
       this.source = ctx.createMediaStreamSource(stream);
@@ -531,7 +567,10 @@ export class AIRALiveService {
         }
         const base64Data = btoa(binary);
 
-        if (this.session) {
+        // Half duplex: while Ultron talks, the mic is not sent, so speaker echo
+        // can't be taken as a new request (which made it repeat itself and redo
+        // actions). Typing and the stop button still work while it talks.
+        if (this.session && !this.isSpeaking()) {
           this.session.sendRealtimeInput({
             audio: { data: base64Data, mimeType: 'audio/pcm;rate=16000' }
           });
@@ -559,18 +598,21 @@ export class AIRALiveService {
     // Don't close common context, just cleanup mic
     this.processor = null;
     this.source = null;
+    this.micStream?.getTracks().forEach((t) => t.stop()); // turns the mic light off
+    this.micStream = null;
   }
 
   private stopPlayback() {
     this.audioQueue = [];
     this.nextStartTime = 0;
     this.isProcessingAudio = false;
-    if (this.activeSource) {
+    // Stop every scheduled chunk, not only the last one, or old speech keeps playing.
+    for (const src of this.playing) {
       try {
-        this.activeSource.stop();
-      } catch (e) { }
-      this.activeSource = null;
+        src.stop();
+      } catch {}
     }
+    this.playing.clear();
   }
 
   private async enqueueAudio(data: Int16Array) {
@@ -616,8 +658,9 @@ export class AIRALiveService {
           this.nextStartTime = currentTime + minBuffer;
         }
         
+        source.onended = () => this.playing.delete(source);
         source.start(this.nextStartTime);
-        this.activeSource = source;
+        this.playing.add(source);
         this.nextStartTime += audioBuffer.duration;
       }
     } catch (err) {
@@ -648,6 +691,9 @@ export class AIRALiveService {
   }
 
   terminate() {
+    this.closedByUs = true; // our own close is not a dropped connection
+    this.flushUserText();
+    this.flushAiText();
     this.session?.close();
     this.stopMic();
     this.stopPlayback();
