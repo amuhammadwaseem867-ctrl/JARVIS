@@ -38,7 +38,7 @@ The local model only writes text. It is never given control of your computer; co
 
 ## Wake word and auto-start
 
-Say **"Ultron"** and it switches itself on, no code, no Start button. "Ultron, open WhatsApp" wakes it and runs the command; "Hey Ultron" wakes it and waits for you.
+Say **"Ultron"** and it switches itself on, no code, no Start button. "Ultron, open WhatsApp" wakes it and runs the command; "Hey Ultron" or **"Wake up"** wakes it and waits for you; "Wake up, open YouTube" works too.
 
 * **Desktop app**: install the free offline speech engine once with `python3 -m pip install faster-whisper sounddevice numpy`. Ultron then starts hidden at login (tray icon), listens in the background and opens itself when called. Speech is transcribed on your computer. `Cmd/Ctrl + Shift + U` also opens it. Turn auto-start off in the tray menu or with `ULTRON_AUTOSTART=0`.
 * **Browser tab**: while Ultron is idle, Chrome, Edge and Safari listen for "Ultron" with their built-in speech recognition, no install needed.
