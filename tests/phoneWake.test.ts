@@ -180,3 +180,27 @@ test("phone: unpair all", async () => {
   const devices = await desktop("GET", "/api/phone/devices");
   assert.equal(devices.devices.length, 0);
 });
+
+test("phone can install the app before pairing, and the CA really signs the phone certificate", async () => {
+  const install = await phone("GET", "/install");
+  assert.equal(install.status, 200);
+  assert.match(install.body, /Add to Home Screen/);
+  const ca = await phone("GET", "/ultron-ca.crt");
+  assert.equal(ca.status, 200);
+  assert.match(String(ca.headers["content-type"]), /x509-ca-cert/);
+  assert.match(ca.body, /BEGIN CERTIFICATE/);
+  assert.equal((await phone("GET", "/manifest.webmanifest")).status, 200);
+  // Everything else still needs pairing.
+  assert.equal((await phone("GET", "/")).status, 401);
+  assert.equal((await phone("GET", "/api/capabilities")).status, 401);
+  // A phone that trusts only the Ultron CA accepts the connection (no warning).
+  const trusted = await new Promise<number>((resolve, reject) => {
+    const req = https.request({ host: PHONE_IP, port: PHONE_PORT, path: "/install", ca: ca.body, rejectUnauthorized: true }, (res) => {
+      res.resume();
+      resolve(res.statusCode || 0);
+    });
+    req.on("error", reject);
+    req.end();
+  });
+  assert.equal(trusted, 200);
+});
