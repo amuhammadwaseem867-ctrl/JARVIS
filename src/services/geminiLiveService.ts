@@ -149,7 +149,7 @@ export class AIRALiveService {
               },
               {
                 name: "openApplication",
-                description: "Opens a desktop application on the user's Mac (such as WhatsApp, Google Chrome, Finder, Notes, VS Code, Safari, Spotify, Settings). Terminal and other code runners are blocked.",
+                description: "Opens a desktop application on the user's Mac (such as WhatsApp, Google Chrome, Finder, Notes, VS Code, Safari, Spotify, Settings). Terminal and other code runners are blocked unless Full Control mode is on.",
                 parameters: {
                   type: Type.OBJECT,
                   properties: {
@@ -160,13 +160,13 @@ export class AIRALiveService {
               },
               {
                 name: "controlSystem",
-                description: "Runs Python desktop/system control actions on the user's computer: check system status (battery, active app, CPU load), take screenshot, click or move mouse, set volume, type text, press hotkeys, read/write clipboard, show desktop notifications, manage files inside the Ultron workspace folder, or run a read-only system command preset. Arbitrary shell commands are not available.",
+                description: "Runs Python desktop/system control actions on the user's computer: check system status (battery, active app, CPU load), take screenshot, click or move mouse, set volume, type text, press hotkeys, read/write clipboard, show desktop notifications, manage files, run a read-only system command preset, or run any shell command with run_shell (works only when the owner has turned on Full Control mode).",
                 parameters: {
                   type: Type.OBJECT,
                   properties: {
                     action: {
                       type: Type.STRING,
-                      enum: ["status", "screenshot", "mouse_click", "mouse_move", "volume", "type_text", "hotkey", "clipboard_get", "clipboard_set", "notify", "fs_op", "run_command"],
+                      enum: ["status", "screenshot", "mouse_click", "mouse_move", "volume", "type_text", "hotkey", "clipboard_get", "clipboard_set", "notify", "fs_op", "run_command", "run_shell"],
                       description: "The Python system control action to run."
                     },
                     x: { type: Type.NUMBER, description: "Logical screen X coordinate for mouse_click or mouse_move." },
@@ -181,8 +181,10 @@ export class AIRALiveService {
                     title: { type: Type.STRING, description: "Notification title." },
                     message: { type: Type.STRING, description: "Notification message." },
                     preset: { type: Type.STRING, enum: ["date", "uptime", "disk_usage", "os_version", "battery", "wifi_name", "top_processes"], description: "Read-only command preset when action is run_command." },
+                    command: { type: Type.STRING, description: "Shell command (bash) when action is run_shell." },
+                    cwd: { type: Type.STRING, description: "Working folder for run_shell, default home." },
                     operation: { type: Type.STRING, description: "File op (list, read, write, mkdir) when action is fs_op." },
-                    path: { type: Type.STRING, description: "Path relative to the Ultron workspace folder when action is fs_op." },
+                    path: { type: Type.STRING, description: "Path for fs_op: relative to the Ultron workspace folder, or anywhere in home (~/...) in Full Control mode." },
                     content: { type: Type.STRING, description: "File content when fs_op is write." }
                   },
                   required: ["action"]

@@ -24,7 +24,7 @@ class AgentTests(unittest.TestCase):
     def test_shell_removed(self):
         r = run({"action": "run_shell", "command": "touch /tmp/pwned"}, self.env)
         self.assertFalse(r["ok"])
-        self.assertIn("Unknown or disabled", r["error"])
+        self.assertIn("Full Control", r["error"])
 
     def test_command_presets_only(self):
         self.assertFalse(run({"action": "run_command", "preset": "id; whoami"}, self.env)["ok"])
@@ -73,3 +73,23 @@ class AgentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FullControlTests(unittest.TestCase):
+    def setUp(self):
+        self.home = tempfile.mkdtemp()
+        self.env = {"HOME": self.home, "PATH": "/usr/bin:/bin", "ULTRON_FULL_CONTROL": "1"}
+
+    def test_shell_runs(self):
+        r = run({"action": "run_shell", "command": "echo hello && pwd"}, self.env)
+        self.assertTrue(r["ok"])
+        self.assertIn("hello", r["stdout"])
+
+    def test_whole_home_files(self):
+        Path(self.home, "notes.txt").write_text("mine")
+        r = run({"action": "fs_op", "operation": "read", "path": "~/notes.txt"}, self.env)
+        self.assertEqual(r["content"], "mine")
+
+    def test_still_inside_home(self):
+        r = run({"action": "fs_op", "operation": "read", "path": "/etc/passwd"}, self.env)
+        self.assertFalse(r["ok"])

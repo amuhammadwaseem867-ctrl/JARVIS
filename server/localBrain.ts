@@ -85,6 +85,10 @@ export function parseIntent(input: string, now = new Date()): IntentResult | nul
   if (/\bwi-?fi\b/.test(text)) {
     return { reply: "Checking your Wi-Fi.", action: { action: "run_command", preset: "wifi_name" } };
   }
+  const shell = input.trim().match(/^(?:run|command|cmd|chalao)\s*[:>]?\s+(.+)$/i);
+  if (shell) {
+    return { reply: `Running: ${shell[1]}`, action: { action: "run_shell", command: shell[1] } };
+  }
   if (/\b(system status|mac status)\b/.test(text)) {
     return { reply: "Checking system status.", action: { action: "status" } };
   }
