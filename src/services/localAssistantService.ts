@@ -247,8 +247,9 @@ export class LocalAssistantService implements AssistantEngine {
     this.listening = false;
     if (rec) {
       rec.onend = null;
+      rec.onresult = null;
       try {
-        rec.stop();
+        rec.abort(); // releases the mic right away
       } catch {}
     }
   }
