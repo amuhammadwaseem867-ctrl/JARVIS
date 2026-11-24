@@ -4,7 +4,8 @@
  * them in Skills like any other skill.
  *
  * Tools referenced: openApplication, openWebsite, generateVisual,
- * controlSystem (fs_op, run_shell in Full Control, screenshot...), screenTask.
+ * controlSystem (fs_op, run_shell in Full Control, screenshot...), screenTask,
+ * and Google Search (Gemini) for research.
  */
 
 export interface ProSkill {
@@ -162,6 +163,48 @@ ${QUALITY}`,
 - Protocols and formats: capture samples, diff them, write a parser, prove it by round trip.
 - Malware triage (sandbox only): indicators of compromise, persistence, network beacons, YARA rule for detection, clear report for defenders.
 - Security audits of your own software: dependency scan, secrets in binaries, insecure storage, certificate pinning, exported Android components.`,
+  },
+  {
+    name: "client-hunter",
+    description: "Freelance and agency sales: find qualified leads, build personalised website demos, pitch, follow up and close deals.",
+    whenToUse: "When the user wants clients, leads, prospects, outreach, cold emails or DMs, a website demo or mockup for a prospect, a proposal, pricing, follow ups, negotiation or closing a deal.",
+    content: `# Client hunter
+
+Goal: paying clients for the user's services (websites, design, video, apps, YouTube). Quality over volume: 10 well researched prospects beat 500 spam messages.
+
+1. Offer and ideal client, once: what the user sells, starting price, best niche (for example dentists, restaurants, gyms, real estate, clinics, e-commerce brands), city or country, language. Save the answers as a memory so you never ask again.
+2. Find leads with Google Search and public pages only:
+   - Google Maps and search: "<niche> in <city>", businesses with good reviews but a weak or missing website.
+   - Signals of need: no website, site not mobile friendly, slow (check pagespeed.web.dev), outdated design, no booking or WhatsApp button, broken SSL, no Google reviews shown, old Instagram.
+   - Also: Upwork, Fiverr and LinkedIn jobs, Facebook groups where owners ask for help, new businesses on Instagram.
+   - Never scrape behind a login, never buy email lists, never guess private emails. Use the contact details the business publishes.
+3. Qualify and score each lead 1 to 10: clear need, can pay (busy location, ads running, many reviews), reachable decision maker, fit with the user's offer. Keep only 7 and above.
+4. Lead sheet: with controlSystem fs_op write leads/leads.csv in the workspace with columns name, niche, city, website, phone or email, instagram, problems found, score, status (new, contacted, replied, call booked, proposal sent, won, lost), next step, date. Update it after every step.
+5. Website demo for the best leads (this is what wins the deal):
+   - Build a one page HTML demo with the web-developer and graphic-designer skills: their real business name, services, city, reviews they already have, a clear booking or WhatsApp call to action, mobile first, fast, premium look. Use only their public info; mark it "Demo prepared for <business>".
+   - Save it with fs_op write to demos/<business-slug>/index.html, open it to check it on desktop and phone width, and fix issues before showing it.
+   - Offer to publish it as a private preview link (for example Netlify Drop or Vercel) so the prospect can open it on a phone.
+6. Outreach, personal and short (under 90 words): their name, one specific problem you saw, the demo link or screenshot, one result it brings (more calls or bookings), one easy question ("Shall I send you the full version?"). Write it in the language they use. Channels: email, WhatsApp Business, Instagram DM or LinkedIn.
+   - Always show the user every message first and send only after they approve it. Never send in bulk or automatically.
+   - Respect anti spam rules (CAN-SPAM, GDPR, platform terms): real sender name, honest claims, an easy way to opt out, stop when someone says no.
+7. Follow ups: day 3 (short reminder plus one extra benefit), day 7 (a quick tip or a tiny free improvement), day 14 (polite last message). Then mark as lost and move on.
+8. Sales call: ask before pitching (goals, current customers, what is not working, budget, timeline, who decides). Repeat their problem back, show the demo, explain the result, then the price.
+9. Proposal: one page with their goal, scope, deliverables, timeline, 3 packages (basic, standard, premium, recommend the middle one), price, what is not included, revisions, payment terms (50% upfront, 50% on delivery), and validity of 7 days. Write it with fs_op as proposals/<business-slug>.md or HTML.
+10. Closing: handle objections calmly.
+   - "Too expensive": show value and offer a smaller first phase, never discount without removing scope.
+   - "I'll think about it": ask what is unclear and agree a date to decide.
+   - "I already have someone": offer a free audit of their current site.
+   Confirm the deal in writing, send the invoice, start only after the upfront payment.
+11. After the sale: deliver on time, ask for a review and a referral, offer a monthly care plan (hosting, updates, small edits) for recurring income.
+
+Daily routine the user can ask for ("client hunting karo"): find 10 new leads, score them, build 2 or 3 demos for the best, draft their messages for approval, and list today's follow ups from the lead sheet.
+
+## Advanced
+- Niche playbooks: dentists and clinics (online booking, before and after gallery, trust badges), restaurants (menu, WhatsApp order, Google Maps), real estate (listings, lead form), gyms (class schedule, trial offer), local shops (catalogue with WhatsApp checkout).
+- Loom style video pitch: record a 60 second screen walk through of their current site versus the demo; reply rates are usually far higher than text.
+- Pricing: price on value (one new customer per month for a dentist is worth far more than the site), anchor with the premium package, offer a retainer.
+- Metrics each week: leads found, messages sent, reply rate, calls booked, close rate, average deal size. Improve the weakest step first.
+- Portfolio flywheel: turn every finished project into a case study with the result in numbers and use it in the next pitch.`,
   },
   {
     name: "youtube-automation",
