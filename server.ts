@@ -10,6 +10,7 @@ import fs from "fs";
 import { spawn } from "child_process";
 import { GoogleGenAI } from "@google/genai";
 import { DEFAULT_CORE_STATE, type CoreStoreState, type SkillItem } from "./src/types/core";
+import { PRO_SKILLS } from "./src/types/proSkills";
 import {
   SESSION_TOKEN,
   audit,
@@ -81,6 +82,21 @@ function readCoreStore(): CoreStoreState {
       return structuredClone(DEFAULT_CORE_STATE);
     }
     const raw = JSON.parse(fs.readFileSync(CORE_DATA_FILE, "utf-8"));
+    // Offer new built-in skills once to existing installs.
+    const seeded = new Set<string>(Array.isArray(raw.seededSkills) ? raw.seededSkills : []);
+    const missing = PRO_SKILLS.filter((p) => !seeded.has(p.name));
+    if (missing.length) {
+      const skills: SkillItem[] = Array.isArray(raw.skills) ? raw.skills : [];
+      for (const p of missing) {
+        if (!skills.some((s) => s.name === p.name)) {
+          skills.push({ ...p, enabled: true, usable: true, updatedAt: new Date().toISOString() });
+        }
+        seeded.add(p.name);
+      }
+      raw.skills = skills;
+      raw.seededSkills = [...seeded];
+      fs.writeFileSync(CORE_DATA_FILE, JSON.stringify(raw, null, 2), { encoding: "utf-8", mode: 0o600 });
+    }
     return {
       ...structuredClone(DEFAULT_CORE_STATE),
       ...raw,

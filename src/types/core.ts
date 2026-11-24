@@ -1,3 +1,5 @@
+import { PRO_SKILLS } from './proSkills';
+
 export interface MemoryNote {
   id: string;
   title: string;
@@ -73,6 +75,8 @@ export interface CoreStoreState {
   memories: MemoryNote[];
   intentions: MemoryIntention[];
   skills: SkillItem[];
+  /** Built-in skills already offered once, so deleted ones are not re-added. */
+  seededSkills?: string[];
   activeCharacterId: string;
   customCharacters: CharacterProfile[];
   characterUserPrefs: Record<string, CharacterUserPrefs>;
@@ -233,7 +237,9 @@ export const DEFAULT_CORE_STATE: CoreStoreState = {
       usable: true,
       updatedAt: new Date().toISOString(),
     },
+    ...PRO_SKILLS.map((s) => ({ ...s, enabled: true, usable: true, updatedAt: new Date().toISOString() })),
   ],
+  seededSkills: PRO_SKILLS.map((s) => s.name),
   activeCharacterId: 'ultron',
   customCharacters: [],
   characterUserPrefs: {
@@ -242,8 +248,8 @@ export const DEFAULT_CORE_STATE: CoreStoreState = {
   },
   settings: {
     profile: {
-      fullName: 'Arvind',
-      location: 'India',
+      fullName: '',
+      location: '',
     },
     voice: {
       voiceName: 'Aoede',
