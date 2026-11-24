@@ -181,7 +181,7 @@ export class AIRALiveService {
                     title: { type: Type.STRING, description: "Notification title." },
                     message: { type: Type.STRING, description: "Notification message." },
                     preset: { type: Type.STRING, enum: ["date", "uptime", "disk_usage", "os_version", "battery", "wifi_name", "top_processes"], description: "Read-only command preset when action is run_command." },
-                    command: { type: Type.STRING, description: "Shell command (bash) when action is run_shell." },
+                    command: { type: Type.STRING, description: "Shell command when action is run_shell: bash on Mac, PowerShell on Windows." },
                     cwd: { type: Type.STRING, description: "Working folder for run_shell, default home." },
                     operation: { type: Type.STRING, description: "File op (list, read, write, mkdir) when action is fs_op." },
                     path: { type: Type.STRING, description: "Path for fs_op: relative to the Ultron workspace folder, or anywhere in home (~/...) in Full Control mode." },
@@ -192,11 +192,11 @@ export class AIRALiveService {
               },
               {
                 name: "screenTask",
-                description: "Multi-step laptop control agent: captures the user's Mac screen and clicks, types and opens desktop apps to complete a task step by step. The person must approve the goal first and can stop it at any time.",
+                description: "Multi-step laptop control agent: captures the user's computer screen and clicks, types and opens desktop apps to complete a task step by step. The person must approve the goal first and can stop it at any time.",
                 parameters: {
                   type: Type.OBJECT,
                   properties: {
-                    goal: { type: Type.STRING, description: "Complete description of the desktop task to perform on the user's Mac." },
+                    goal: { type: Type.STRING, description: "Complete description of the desktop task to perform on the user's computer." },
                     maxSteps: { type: Type.NUMBER, description: "Maximum vision-action steps (default 5)." }
                   },
                   required: ["goal"]
