@@ -8,7 +8,9 @@
  *     Safari, and phone browsers). Not available inside the desktop app.
  */
 
-const ALIASES = /\b(?:(?:hey|hi|ok|okay|suno)\s+)?(ultron|ultran|altron|ultra\s?on|all\s?tron)\b[\s,.:;!-]*/i;
+const ALIASES = /\b(?:(?:hey|hi|ok|okay|suno)\s+)?(ultron|ultran|altron|ultra\s?on|all\s?tron|wake[\s-]?up)\b[\s,.:;!-]*/i;
+// "Ultron, wake up" only wakes it; "wake up" is not sent as a command.
+const WAKE_UP_ONLY = /^(?:please\s+)?wake[\s-]?up(?:\s+please)?[\s.!]*$/i;
 
 /** Returns the command after the wake word, "" if only woken, or null if not said. */
 export function matchWake(transcript: string): string | null {
@@ -19,7 +21,7 @@ export function matchWake(transcript: string): string | null {
     .replace(/\s+([?.!])/g, '$1')
     .replace(/^[\s,.;:!-]+|[\s,;:-]+$/g, '')
     .trim();
-  return /\w/.test(rest) ? rest : '';
+  return /\w/.test(rest) && !WAKE_UP_ONLY.test(rest) ? rest : '';
 }
 
 export type ActivityItem = { from: 'pc' | 'phone'; kind: 'user' | 'ai' | 'action'; text: string; clientId?: string; at: number };

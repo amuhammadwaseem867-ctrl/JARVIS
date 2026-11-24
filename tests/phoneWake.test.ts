@@ -96,6 +96,9 @@ test("wake word matcher", () => {
   assert.equal(matchWake("what is the time ultron?"), "what is the time?");
   assert.equal(matchWake("open notes please"), null);
   assert.equal(matchWake("ultra on volume 40"), "volume 40");
+  assert.equal(matchWake("wake up"), "");
+  assert.equal(matchWake("Ultron, wake up!"), "");
+  assert.equal(matchWake("wake up, open YouTube"), "open YouTube");
 });
 
 test("wake events reach open windows and need the token", async () => {

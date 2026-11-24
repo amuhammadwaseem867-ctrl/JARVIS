@@ -22,8 +22,10 @@ import sys
 import time
 import urllib.request
 
-ALIASES = {"ultron", "ultran", "altron", "ultra-on", "ultraon", "ultrun", "aultron"}
-SPLIT_ALIASES = [("ultra", "on"), ("all", "tron"), ("ul", "tron"), ("ult", "ron")]
+ALIASES = {"ultron", "ultran", "altron", "ultra-on", "ultraon", "ultrun", "aultron", "wakeup", "wake-up"}
+SPLIT_ALIASES = [("ultra", "on"), ("all", "tron"), ("ul", "tron"), ("ult", "ron"), ("wake", "up")]
+# "Ultron, wake up" only wakes it; the words "wake up" are not sent as a command.
+WAKE_UP_ONLY = re.compile(r"^(?:please\s+)?wake[\s-]?up(?:\s+please)?[\s.!]*$", re.I)
 LEAD_INS = {"hey", "hi", "ok", "okay", "yo", "hello", "oi", "suno", "sun"}
 WORD = re.compile(r"[\w']+")
 
@@ -48,7 +50,8 @@ def match_wake(transcript: str) -> str | None:
         start = words[span[0]].start()
         if span[0] > 0 and lowered[span[0] - 1] in LEAD_INS:
             start = words[span[0] - 1].start()
-        return _tidy(transcript[:start] + " " + transcript[words[span[1]].end():])
+        rest = _tidy(transcript[:start] + " " + transcript[words[span[1]].end():])
+        return "" if WAKE_UP_ONLY.match(rest) else rest
     return None
 
 
@@ -115,7 +118,7 @@ def listen() -> None:
                 if len(audio) < rate * 0.4:
                     continue
                 segments, _info = model.transcribe(audio, beam_size=1, vad_filter=True,
-                                                   initial_prompt="Ultron")
+                                                   initial_prompt="Ultron, wake up.")
                 text = " ".join(s.text for s in segments).strip()
                 command = match_wake(text) if text else None
                 if command is not None:

@@ -109,6 +109,9 @@ class WakeWordTests(unittest.TestCase):
         self.assertEqual(m("Ultra on, volume 40"), "volume 40")
         self.assertEqual(m("What's the weather, Ultron?"), "What's the weather?")
         self.assertIsNone(m("open notes please"))
+        self.assertEqual(m("Wake up."), "")
+        self.assertEqual(m("Ultron, wake up!"), "")
+        self.assertEqual(m("Wake up, open YouTube"), "open YouTube")
 
 
 class WindowsBackendTests(unittest.TestCase):
