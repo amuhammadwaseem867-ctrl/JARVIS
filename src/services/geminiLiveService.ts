@@ -65,6 +65,16 @@ export interface AIRALiveCallbacks {
   onSystemEvent?: (label: string, detail: string) => void;
 }
 
+/** How Ultron plans and multitasks. Added to every Live session. */
+const THINKING_RULES = `
+
+## HOW TO THINK AND MULTITASK
+- Break a request into every task it contains ("open YouTube and set volume to 40" is two tasks) and call all the tools for them in the same turn; they run at the same time.
+- For multi-step work that depends on earlier steps, do the steps in order, check each tool result, and fix or retry once before reporting.
+- Use Google Search for anything current or that you are not sure about: news, prices, weather, scores, versions, people. Say briefly where the answer came from.
+- Keep track of what is still running or pending and tell the user when each task finishes.
+- Be brief when speaking: say what you did and the result, not the steps you took.`;
+
 export class AIRALiveService {
   private ai: GoogleGenAI;
   private session: any = null;
@@ -171,7 +181,7 @@ export class AIRALiveService {
           },
           systemInstruction:
             (this.systemInstructionOverride ||
-            "You are Ultron, the user's calm, precise and quietly witty personal command intelligence. Speak naturally in the user's language. Use openApplication, controlSystem and screenTask to act on their Mac; risky actions need their approval. Only confirm an action succeeded when the tool returns ok: true or done: true.") + SECURITY_RULES,
+            "You are Ultron, the user's calm, precise and quietly witty personal command intelligence. Speak naturally in the user's language. Use openApplication, controlSystem and screenTask to act on their Mac; risky actions need their approval. Only confirm an action succeeded when the tool returns ok: true or done: true.") + THINKING_RULES + SECURITY_RULES,
           tools: [{
             functionDeclarations: [
               {
@@ -280,7 +290,7 @@ export class AIRALiveService {
                 }
               }
             ]
-          }],
+          }, { googleSearch: {} }], // live web search: news, prices, weather, facts after the training date
           inputAudioTranscription: {},
           outputAudioTranscription: {},
         },
@@ -335,7 +345,10 @@ export class AIRALiveService {
             // Handle tool calls
             const toolCall = message.toolCall;
             if (toolCall) {
-              for (const call of toolCall.functionCalls) {
+              // Multitasking: run every tool call of this turn at the same time, so
+              // "open YouTube, set volume 40 and send a note" happens together.
+              await Promise.all((toolCall.functionCalls || []).map(async (call) => {
+              try {
                 if (call.name === "openWebsite") {
                   const rawUrl = String((call.args as any).url || "");
                   const url = safeExternalUrl(rawUrl);
@@ -494,7 +507,13 @@ export class AIRALiveService {
                     }]
                   });
                 }
+                            } catch (err: any) {
+                // One failing task never blocks the others or leaves the model waiting.
+                this.session?.sendToolResponse({
+                  functionResponses: [{ name: call.name, id: call.id, response: { success: false, error: String(err?.message || err).slice(0, 300) } }],
+                });
               }
+              }));
             }
           },
           onclose: (ev: any) => {

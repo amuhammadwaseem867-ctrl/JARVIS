@@ -43,7 +43,7 @@ import {
   redeem,
 } from "./server/phone";
 import { ActionDeduper, addClient, broadcastActivity, broadcastSessionSwitch, broadcastWake, setSessionOn } from "./server/activity";
-import { LOCAL_HELP, ollamaChat, ollamaStatus, parseIntent, type ChatTurn } from "./server/localBrain";
+import { LOCAL_HELP, ollamaChat, ollamaStatus, parseIntents, type ChatTurn } from "./server/localBrain";
 
 const APP_ROOT = process.env.AIRA_APP_ROOT || process.cwd();
 const DATA_ROOT = process.env.AIRA_DATA_DIR || process.cwd();
@@ -297,8 +297,8 @@ app.post("/api/local/chat", async (req, res) => {
   const text = str(req.body?.text, 2000).trim();
   if (!text) return res.status(400).json({ ok: false, error: "Message is required." });
 
-  const intent = parseIntent(text);
-  if (intent) return res.json({ ok: true, source: "command", reply: intent.reply, action: intent.action });
+  const intent = parseIntents(text);
+  if (intent) return res.json({ ok: true, source: "command", reply: intent.reply, action: intent.actions[0], actions: intent.actions, replies: intent.replies });
 
   const ollama = await ollamaStatus();
   if (!ollama.available) return res.json({ ok: true, source: "help", reply: LOCAL_HELP });

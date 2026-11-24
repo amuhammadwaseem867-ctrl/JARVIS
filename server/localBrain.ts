@@ -102,6 +102,33 @@ export function parseIntent(input: string, now = new Date()): IntentResult | nul
   return null;
 }
 
+const SPLIT = /\s*(?:,|;|\band then\b|\bthen\b|\band\b|\baur\b|\bphir\b|\bsath hi\b)\s*/i;
+
+/**
+ * Multitasking in local mode: "open YouTube and set volume 40, then check
+ * battery" becomes three actions that run together. Every part must be a
+ * known command; otherwise the sentence is treated as one request.
+ * Shell commands are never split, since "and" can be part of the command.
+ */
+export function parseIntents(input: string, now = new Date()): { reply: string; actions: LocalAction[]; replies: string[] } | null {
+  const whole = parseIntent(input, now);
+  if (whole?.action?.action === "run_shell") return { reply: whole.reply, actions: [whole.action], replies: [whole.reply] };
+  const parts = input.split(SPLIT).map((p) => p.trim()).filter(Boolean);
+  if (parts.length > 1 && parts.length <= 6) {
+    const opener = parts.some((p) => OPEN_WORDS.test(p));
+    const results = parts.map((p) => parseIntent(p, now) || (opener ? parseIntent(`open ${p}`, now) : null));
+    if (results.every(Boolean) && results.every((r) => r!.action?.action !== "run_shell")) {
+      const withAction = results.filter((r) => r!.action);
+      return {
+        reply: results.map((r) => r!.reply).join(" "),
+        actions: withAction.map((r) => r!.action!),
+        replies: withAction.map((r) => r!.reply),
+      };
+    }
+  }
+  return whole ? { reply: whole.reply, actions: whole.action ? [whole.action] : [], replies: whole.action ? [whole.reply] : [] } : null;
+}
+
 export const LOCAL_HELP =
   "I'm in local mode, without an API key. I can tell the time and date, open apps (say \"open WhatsApp\"), set the volume, mute, and check battery, disk space, uptime and Wi-Fi. For free conversation, install Ollama from ollama.com, run \"ollama pull llama3.2\", and ask me again.";
 
