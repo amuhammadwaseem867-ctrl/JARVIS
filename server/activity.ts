@@ -35,6 +35,20 @@ function write(client: Client, event: string, data: unknown) {
   }
 }
 
+/**
+ * The person pressed Connect or Terminate on one device: the other open
+ * windows follow, so the phone and the computer switch on and off together.
+ */
+export function broadcastSessionSwitch(data: { on: boolean; clientId: string; from: "pc" | "phone" }): number {
+  let sent = 0;
+  for (const c of clients) {
+    if (c.id === data.clientId) continue;
+    write(c, "session", data);
+    sent++;
+  }
+  return sent;
+}
+
 /** Sends an activity item (what was said or done) to every window. */
 export function broadcastActivity(item: { from: "pc" | "phone"; kind: "user" | "ai" | "action"; text: string; clientId?: string }) {
   const data = { ...item, text: item.text.slice(0, 2000), at: Date.now() };

@@ -42,7 +42,7 @@ import {
   phoneOrigin,
   redeem,
 } from "./server/phone";
-import { ActionDeduper, addClient, broadcastActivity, broadcastWake, setSessionOn } from "./server/activity";
+import { ActionDeduper, addClient, broadcastActivity, broadcastSessionSwitch, broadcastWake, setSessionOn } from "./server/activity";
 import { LOCAL_HELP, ollamaChat, ollamaStatus, parseIntent, type ChatTurn } from "./server/localBrain";
 
 const APP_ROOT = process.env.AIRA_APP_ROOT || process.cwd();
@@ -269,6 +269,15 @@ app.post("/api/wake", (req, res) => {
 /** A window says whether its voice session is on, so wake words are not doubled. */
 app.post("/api/session-state", (req, res) => {
   res.json({ ok: setSessionOn(str(req.body?.clientId, 40), req.body?.on === true) });
+});
+
+/** Connect or Terminate pressed on one device: the others follow. */
+app.post("/api/session-switch", (req, res) => {
+  const clientId = str(req.body?.clientId, 40);
+  if (!clientId) return res.status(400).json({ ok: false, error: "clientId is required." });
+  const on = req.body?.on === true;
+  audit("session.switch", { on, from: isPhoneRequest(req) ? "phone" : "pc" });
+  res.json({ ok: true, delivered: broadcastSessionSwitch({ on, clientId, from: isPhoneRequest(req) ? "phone" : "pc" }) });
 });
 
 /** A window shares what was said, so the computer and the phone show the same conversation. */

@@ -30,6 +30,8 @@ export const CLIENT_ID = Math.random().toString(36).slice(2, 12);
 export class WakeWatcher {
   private onWake: (command: string, source: string) => void;
   private onActivity: (item: ActivityItem) => void;
+  /** Connect or Terminate was pressed on another device. */
+  onSessionSwitch: (on: boolean, from: 'pc' | 'phone') => void = () => {};
   private abort: AbortController | null = null;
   private recognition: any = null;
   private browserWanted = false;
@@ -82,6 +84,7 @@ export class WakeWatcher {
             const evt = JSON.parse(data?.slice(6) || '{}');
             if (type === 'wake') this.onWake(String(evt.command || ''), String(evt.source || 'listener'));
             else if (type === 'activity' && evt.clientId !== CLIENT_ID) this.onActivity(evt as ActivityItem);
+            else if (type === 'session' && evt.clientId !== CLIENT_ID) this.onSessionSwitch(evt.on === true, evt.from === 'phone' ? 'phone' : 'pc');
           } catch {}
         }
       }
