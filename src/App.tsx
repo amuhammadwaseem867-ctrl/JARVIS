@@ -37,7 +37,24 @@ import { motion, AnimatePresence } from 'motion/react';
 import { HologramCore } from '@/components/ui/hologram-core';
 import { AIRALiveService, primeAudioForSession, type AIRALiveCallbacks } from './services/geminiLiveService';
 import { LocalAssistantService, type AssistantEngine } from './services/localAssistantService';
-import { WakeWatcher } from './services/wakeWord';
+import { CLIENT_ID, WakeWatcher } from './services/wakeWord';
+
+/** Shares a line of conversation with the other open Ultron windows (computer and phone). */
+function shareActivity(kind: 'user' | 'ai', text: string) {
+  fetch('/api/activity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind, text, clientId: CLIENT_ID }),
+  }).catch(() => {});
+}
+
+function reportSession(on: boolean) {
+  fetch('/api/session-state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ on, clientId: CLIENT_ID }),
+  }).catch(() => {});
+}
 
 interface DesktopPermissionsStatus {
   platform: string;
@@ -1475,6 +1492,11 @@ export default function App() {
   const [selectedVoice, setSelectedVoice] = React.useState<string>('Aoede');
   const airaRef = React.useRef<AssistantEngine | null>(null);
   const isConnectingRef = React.useRef(false);
+  // Each session gets a number; callbacks from an older, closed session are ignored.
+  const sessionGenRef = React.useRef(0);
+  // True only when the person pressed stop. Any other close reconnects by itself.
+  const userStoppedRef = React.useRef(true);
+  const reconnectRef = React.useRef<{ tries: number; timer: number | null; stable: number | null }>({ tries: 0, timer: null, stable: null });
 
   // Camera State
   const [isCameraOn, setIsCameraOn] = React.useState(false);
@@ -1682,6 +1704,8 @@ export default function App() {
     }
     // No Gemini key: Ultron runs in local mode instead of refusing to start.
     const useLocal = !apiKey;
+    const gen = ++sessionGenRef.current;
+    userStoppedRef.current = false;
     isConnectingRef.current = true;
     setIsActive(true);
     setStatus('CONNECTING...');
@@ -1725,6 +1749,8 @@ export default function App() {
     // Always recreate service to ensure fresh state
     const callbacks: AIRALiveCallbacks = {
         onTranscription: (text, isUser) => {
+          if (gen !== sessionGenRef.current) return;
+          shareActivity(isUser ? 'user' : 'ai', text);
           if (isUser) {
             const uEmo = detectUserEmotion(text);
             setUserEmotion(uEmo);
@@ -1746,13 +1772,35 @@ export default function App() {
           ]);
         },
         onStatusChange: (s) => {
+          if (gen !== sessionGenRef.current) return;
           setStatus(s);
+          const rc = reconnectRef.current;
+          if (s === 'LISTENING' || s === 'LOCAL MODE') {
+            reportSession(true);
+            // A connection that stays up for a minute resets the retry count.
+            if (rc.stable) window.clearTimeout(rc.stable);
+            rc.stable = window.setTimeout(() => (rc.tries = 0), 60_000);
+          }
           if (s === 'FAILED' || s === 'ERROR' || s === 'DISCONNECTED') {
             setIsActive(false);
             isConnectingRef.current = false;
+            reportSession(false);
+            if (rc.stable) window.clearTimeout(rc.stable);
+            // Dropped by the network or Google's session time limit: come back
+            // on its own instead of making the person say "Ultron" again.
+            if (!userStoppedRef.current && rc.timer === null && rc.tries < 3) {
+              rc.tries += 1;
+              setSystemBanner('Connection dropped. Reconnecting…');
+              rc.timer = window.setTimeout(() => {
+                rc.timer = null;
+                if (!userStoppedRef.current) void wakeRefs.current.startAiraSession();
+              }, 1200 * rc.tries);
+            }
           }
         },
-        onAudioLevelChange: (l) => setAudioLevel(l),
+        onAudioLevelChange: (l) => {
+          if (gen === sessionGenRef.current) setAudioLevel(l);
+        },
         onGenerateVisual: (type, title, explanation) => {
           setActiveVisual({
             type: type as any,
@@ -1770,6 +1818,7 @@ export default function App() {
           setSystemBanner(`${label}: ${detail}`);
         },
     };
+    airaRef.current?.terminate(); // never leave an old session (and its mic) running
     airaRef.current = useLocal
       ? new LocalAssistantService(callbacks, voiceToUse, promptParts)
       : new AIRALiveService(apiKey, callbacks, voiceToUse, {
@@ -1787,12 +1836,24 @@ export default function App() {
     }
   };
 
+  /** The person pressed stop: close the session and do not reconnect. */
+  const stopByUser = () => {
+    userStoppedRef.current = true;
+    const rc = reconnectRef.current;
+    if (rc.timer !== null) window.clearTimeout(rc.timer);
+    rc.timer = null;
+    rc.tries = 0;
+    sessionGenRef.current += 1;
+    airaRef.current?.terminate();
+    setIsActive(false);
+    reportSession(false);
+  };
+
   const toggleAira = async () => {
     if (status === 'CONNECTING...' || isConnectingRef.current) return;
 
     if (isActive) {
-      airaRef.current?.terminate();
-      setIsActive(false);
+      stopByUser();
       setStatus('READY');
       setAiraEmotion('READY');
       setUserEmotion('CHILL');
@@ -1822,6 +1883,7 @@ export default function App() {
         airaRef.current.sendVideoFrame(base64);
       }
       airaRef.current.sendText(text);
+      shareActivity('user', text);
       setMessages(prev => [...prev, {
         id: Math.random().toString(36).substr(2, 9),
         type: 'user',
@@ -1838,19 +1900,35 @@ export default function App() {
   wakeRefs.current = { isActive, startAiraSession, handleSendMessage };
   const wakeRef = React.useRef<WakeWatcher | null>(null);
   React.useEffect(() => {
-    const watcher = new WakeWatcher(async (command) => {
-      const { isActive: active, startAiraSession: start } = wakeRefs.current;
-      if (!active) {
+    const watcher = new WakeWatcher(
+      async (command) => {
+        const { isActive: active, startAiraSession: start } = wakeRefs.current;
+        // A running session already hears the command through its own mic.
+        if (active || isConnectingRef.current) return;
         setSystemBanner('Wake word heard. Starting Ultron…');
         await start();
-      }
-      if (command) {
-        // Let the session settle before sending the spoken command.
-        window.setTimeout(() => {
-          if (airaRef.current) wakeRefs.current.handleSendMessage(command);
-        }, active ? 0 : 900);
-      }
-    });
+        if (command) {
+          // Let the session settle before sending the spoken command.
+          window.setTimeout(() => {
+            if (airaRef.current) wakeRefs.current.handleSendMessage(command);
+          }, 900);
+        }
+      },
+      (item) => {
+        // What happened on the other device (phone or computer), so both show the same thing.
+        const device = item.from === 'phone' ? 'PHONE' : 'PC';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Math.random().toString(36).slice(2, 11),
+            type: item.kind === 'user' ? 'user' : 'ai',
+            text: item.text,
+            label: item.kind === 'action' ? `${device}_ACTION` : item.kind === 'user' ? `${device}_USER` : `${device}_ULTRON`,
+            time: new Date(item.at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      },
+    );
     wakeRef.current = watcher;
     watcher.start();
     return () => watcher.stop();

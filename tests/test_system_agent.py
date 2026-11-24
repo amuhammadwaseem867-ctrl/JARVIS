@@ -125,6 +125,15 @@ class WindowsBackendTests(unittest.TestCase):
     def test_same_presets_as_mac(self):
         self.assertEqual(set(self.mod.WIN_COMMAND_PRESETS), set(self.mod.COMMAND_PRESETS))
 
+    def test_bare_domain_opens_as_website(self):
+        from unittest import mock
+        opened = []
+        with mock.patch.object(self.mod.os, "startfile", opened.append, create=True):
+            res = self.mod.handle_open_app({"target": "youtube.com"})
+        self.assertEqual(opened, ["https://youtube.com"])
+        self.assertTrue(res["ok"])
+        self.assertIsNone(self.mod.BARE_DOMAIN_RE.match("notepad"))
+
     def test_code_runners_blocked(self):
         for name in ["powershell", "cmd", "Windows Terminal", "regedit"]:
             with self.assertRaises(self.mod.AgentError):

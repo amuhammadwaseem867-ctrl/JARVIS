@@ -702,11 +702,16 @@ def _win_find_shortcut(name):
     return None
 
 
+BARE_DOMAIN_RE = re.compile(r"^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|net|org|io|pk|co|app|dev|tv|me|ai)(?:/\S*)?$")
+
+
 def win_open_app(payload):
     raw = str(payload.get("target") or payload.get("app") or "").strip()
     if not raw:
         raise AgentError("An app name or link is required.")
     lowered = raw.lower()
+    if BARE_DOMAIN_RE.match(lowered):
+        lowered = raw = "https://" + raw  # "youtube.com" is a website, not an app
     if lowered in URL_ALIASES or lowered.startswith(("http://", "https://")):
         url = URL_ALIASES.get(lowered) or validate_url(raw)
         os.startfile(url)

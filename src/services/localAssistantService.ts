@@ -29,6 +29,8 @@ export class LocalAssistantService implements AssistantEngine {
   private speaking = false;
   private active = false;
   private levelTimer: number | null = null;
+  private busy = false; // a request is being answered
+  private lastHeard = { text: "", at: 0 };
 
   constructor(callbacks: AIRALiveCallbacks, voiceName: string, systemInstruction: string) {
     this.callbacks = callbacks;
@@ -81,8 +83,26 @@ export class LocalAssistantService implements AssistantEngine {
   private async handle(text: string, fromVoice: boolean) {
     const clean = text.trim();
     if (!clean || !this.active) return;
-    if (fromVoice) this.callbacks.onTranscription(clean, true);
+    if (fromVoice) {
+      // Ignore what the mic hears while Ultron is answering or talking (its own
+      // voice), and the duplicate final results some phone browsers send.
+      if (this.busy || this.speaking) return;
+      const key = clean.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, "");
+      if (key === this.lastHeard.text && Date.now() - this.lastHeard.at < 4000) return;
+      this.lastHeard = { text: key, at: Date.now() };
+      this.stopListening();
+      this.callbacks.onTranscription(clean, true);
+    }
+    this.busy = true;
+    try {
+      await this.answer(clean);
+    } finally {
+      this.busy = false;
+      if (!this.speaking && this.active) this.startListening();
+    }
+  }
 
+  private async answer(clean: string) {
     let reply = "";
     try {
       const res = await fetch("/api/local/chat", {
@@ -143,14 +163,25 @@ export class LocalAssistantService implements AssistantEngine {
         this.stopListening();
         this.startLevel();
       };
+      let finished = false;
+      let guard: number | undefined;
       const done = () => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(guard);
         this.speaking = false;
         this.stopLevel();
-        if (this.active) this.startListening();
+        // Short pause so the tail of its own voice is not picked up as a command.
+        if (this.active) window.setTimeout(() => this.startListening(), 450);
       };
       utter.onend = done;
       utter.onerror = done;
+      // Mark speaking now, not on start: onstart can lag, and the mic must be off first.
+      this.speaking = true;
+      this.stopListening();
       synth.speak(utter);
+      // Some browsers never fire onend; never leave the mic switched off.
+      guard = window.setTimeout(done, 4000 + utter.text.length * 90);
     } catch {
       this.speaking = false;
     }
@@ -171,7 +202,7 @@ export class LocalAssistantService implements AssistantEngine {
 
   private startListening() {
     const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!Ctor || this.listening || this.speaking || !this.active) return;
+    if (!Ctor || this.listening || this.speaking || this.busy || !this.active) return;
     try {
       const rec = new Ctor();
       rec.lang = navigator.language || "en-US";
@@ -185,7 +216,7 @@ export class LocalAssistantService implements AssistantEngine {
       rec.onend = () => {
         this.listening = false;
         // Browsers stop recognition after silence; resume while the session is on.
-        if (this.active && !this.speaking) window.setTimeout(() => this.startListening(), 300);
+        if (this.active && !this.speaking && !this.busy) window.setTimeout(() => this.startListening(), 300);
       };
       rec.onerror = (e: any) => {
         if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {

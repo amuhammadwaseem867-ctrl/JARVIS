@@ -22,15 +22,22 @@ export function matchWake(transcript: string): string | null {
   return /\w/.test(rest) ? rest : '';
 }
 
+export type ActivityItem = { from: 'pc' | 'phone'; kind: 'user' | 'ai' | 'action'; text: string; clientId?: string; at: number };
+
+/** This window's id, so it can skip its own activity echoes and report its session state. */
+export const CLIENT_ID = Math.random().toString(36).slice(2, 12);
+
 export class WakeWatcher {
   private onWake: (command: string, source: string) => void;
+  private onActivity: (item: ActivityItem) => void;
   private abort: AbortController | null = null;
   private recognition: any = null;
   private browserWanted = false;
   private stopped = false;
 
-  constructor(onWake: (command: string, source: string) => void) {
+  constructor(onWake: (command: string, source: string) => void, onActivity: (item: ActivityItem) => void = () => {}) {
     this.onWake = onWake;
+    this.onActivity = onActivity;
   }
 
   start() {
@@ -55,7 +62,7 @@ export class WakeWatcher {
     if (this.stopped) return;
     this.abort = new AbortController();
     try {
-      const res = await fetch('/api/events', { signal: this.abort.signal });
+      const res = await fetch(`/api/events?client=${CLIENT_ID}`, { signal: this.abort.signal });
       if (!res.ok || !res.body) throw new Error(String(res.status));
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -69,11 +76,12 @@ export class WakeWatcher {
         while ((idx = buf.indexOf('\n\n')) >= 0) {
           const block = buf.slice(0, idx);
           buf = buf.slice(idx + 2);
-          if (!block.startsWith('event: wake')) continue;
+          const type = block.match(/^event: (\w+)/)?.[1];
           const data = block.split('\n').find((l) => l.startsWith('data: '));
           try {
             const evt = JSON.parse(data?.slice(6) || '{}');
-            this.onWake(String(evt.command || ''), String(evt.source || 'listener'));
+            if (type === 'wake') this.onWake(String(evt.command || ''), String(evt.source || 'listener'));
+            else if (type === 'activity' && evt.clientId !== CLIENT_ID) this.onActivity(evt as ActivityItem);
           } catch {}
         }
       }
