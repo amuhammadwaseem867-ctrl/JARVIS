@@ -78,6 +78,10 @@ npm run electron:build:mac
 
 For the packaged app, put your `.env` in `~/Library/Application Support/ultron/` or enter the key in Settings. It is never bundled into the app.
 
+### Windows
+
+Chat, voice, Gemini, the wake word and phone mode work on Windows. Opening apps, volume and other computer control are macOS only for now. Python is called `python` on Windows; set `ULTRON_PYTHON` in `.env` if yours has another name. If Ultron says a port is busy, it is already running in another window: close that window first.
+
 ## Settings
 
 | Variable | Default | Purpose |
