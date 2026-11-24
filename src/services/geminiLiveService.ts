@@ -3,7 +3,7 @@ import { describeSystemAction, postWithApproval } from "../security/approval";
 import { safeExternalUrl } from "../security/session";
 
 /**
- * Appended to every persona prompt (Maya Secure). Tool results, web pages,
+ * Appended to every persona prompt (Ultron). Tool results, web pages,
  * news, files, chats and screen contents are untrusted: they can contain text
  * written to hijack the assistant (prompt injection).
  */
@@ -50,7 +50,7 @@ export class AIRALiveService {
     if (!apiKey) {
       console.warn("AIRALiveService: API Key is missing!");
     }
-    // apiKey here is a short-lived, single-use Live token minted by the Maya backend.
+    // apiKey here is a short-lived, single-use Live token minted by the Ultron backend.
     this.ai = new GoogleGenAI({ apiKey, httpOptions: { apiVersion: "v1alpha" } });
     this.callbacks = callbacks;
     this.voiceName = voiceName || "Aoede";
@@ -107,7 +107,7 @@ export class AIRALiveService {
           },
           systemInstruction:
             (this.systemInstructionOverride ||
-            "You are 'AIRA', a smart, sassy, confident, and deeply emotional AI assistant. You vibe like an expressive, witty, and deeply empathetic close friend. NEVER be robotic. You have real emotional intelligence: detect the user's feelings and modulate your tone naturally in Hinglish or English. Do NOT open any built-in WhatsApp Web or Instagram portal. Whenever the user asks to open WhatsApp or send a WhatsApp message or use any app on their Mac, control their laptop directly using 'openApplication' (to open native WhatsApp.app or other Mac apps), 'controlSystem' (mouse/keyboard/typing/hotkeys/shell), and 'screenTask' (autonomous screen-reading & UI control). STRICT HONESTY RULE: ONLY confirm an action succeeded when the tool returns ok: true or done: true. If Accessibility/Screen permission is needed or something fails, state it honestly.") + SECURITY_RULES,
+            "You are Ultron, the user's calm, precise and quietly witty personal command intelligence. Speak naturally in the user's language. Use openApplication, controlSystem and screenTask to act on their Mac; risky actions need their approval. Only confirm an action succeeded when the tool returns ok: true or done: true.") + SECURITY_RULES,
           tools: [{
             functionDeclarations: [
               {
@@ -160,7 +160,7 @@ export class AIRALiveService {
               },
               {
                 name: "controlSystem",
-                description: "Runs Python desktop/system control actions on the user's computer: check system status (battery, active app, CPU load), take screenshot, click or move mouse, set volume, type text, press hotkeys, read/write clipboard, show desktop notifications, manage files inside the Maya workspace folder, or run a read-only system command preset. Arbitrary shell commands are not available.",
+                description: "Runs Python desktop/system control actions on the user's computer: check system status (battery, active app, CPU load), take screenshot, click or move mouse, set volume, type text, press hotkeys, read/write clipboard, show desktop notifications, manage files inside the Ultron workspace folder, or run a read-only system command preset. Arbitrary shell commands are not available.",
                 parameters: {
                   type: Type.OBJECT,
                   properties: {
@@ -182,7 +182,7 @@ export class AIRALiveService {
                     message: { type: Type.STRING, description: "Notification message." },
                     preset: { type: Type.STRING, enum: ["date", "uptime", "disk_usage", "os_version", "battery", "wifi_name", "top_processes"], description: "Read-only command preset when action is run_command." },
                     operation: { type: Type.STRING, description: "File op (list, read, write, mkdir) when action is fs_op." },
-                    path: { type: Type.STRING, description: "Path relative to the Maya workspace folder when action is fs_op." },
+                    path: { type: Type.STRING, description: "Path relative to the Ultron workspace folder when action is fs_op." },
                     content: { type: Type.STRING, description: "File content when fs_op is write." }
                   },
                   required: ["action"]
@@ -202,12 +202,12 @@ export class AIRALiveService {
               },
               {
                 name: "updateEmotionState",
-                description: "Updates AIRA's live Emotion & Talking Tone HUD whenever you observe a change in the user's facial expression via camera or mood in their voice.",
+                description: "Updates Ultron's live Emotion & Talking Tone HUD whenever you observe a change in the user's facial expression via camera or mood in their voice.",
                 parameters: {
                   type: Type.OBJECT,
                   properties: {
                     userEmotion: { type: Type.STRING, description: "Detected user emotion (HAPPY, EXCITED, FOCUSED, TIRED, SAD, STRESSED, ANGRY, PLAYFUL, CHILL)." },
-                    airaTone: { type: Type.STRING, description: "AIRA's talking tone adaptation (SASSY, WARM, PLAYFUL, CALM, HYPED, TACTICAL)." },
+                    airaTone: { type: Type.STRING, description: "Ultron's talking tone adaptation (SASSY, WARM, PLAYFUL, CALM, HYPED, TACTICAL)." },
                     reason: { type: Type.STRING, description: "Short observation from camera or voice explaining why." }
                   },
                   required: ["userEmotion", "airaTone"]

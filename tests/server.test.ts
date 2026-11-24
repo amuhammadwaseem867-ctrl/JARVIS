@@ -29,14 +29,14 @@ function raw(method: string, p: string, headers: Record<string, string> = {}, bo
 async function api(method: string, p: string, body?: unknown, extra: Record<string, string> = {}) {
   const res = await fetch(BASE + p, {
     method,
-    headers: { "Content-Type": "application/json", "X-Maya-Token": TOKEN, ...extra },
+    headers: { "Content-Type": "application/json", "X-Ultron-Token": TOKEN, ...extra },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   return { status: res.status, json: await res.json().catch(() => ({})) };
 }
 
 before(async () => {
-  dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "maya-test-"));
+  dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ultron-test-"));
   child = spawn(process.execPath, [path.join(ROOT, "dist", "server.cjs")], {
     env: {
       ...process.env,
@@ -44,10 +44,10 @@ before(async () => {
       PORT: String(PORT),
       AIRA_APP_ROOT: ROOT,
       AIRA_DATA_DIR: dataDir,
-      MAYA_SESSION_TOKEN: TOKEN,
-      MAYA_QUIET_URL: "1",
+      ULTRON_SESSION_TOKEN: TOKEN,
+      ULTRON_QUIET_URL: "1",
       GEMINI_API_KEY: "AIzaTEST-SECRET-KEY-123456",
-      MAYA_WORKSPACE: path.join(dataDir, "ws-home-check"),
+      ULTRON_WORKSPACE: path.join(dataDir, "ws-home-check"),
     },
     stdio: "pipe",
   });
@@ -73,7 +73,7 @@ test("API rejects requests without the session token", async () => {
 });
 
 test("API rejects a wrong token", async () => {
-  const r = await api("GET", "/api/core", undefined, { "X-Maya-Token": "wrong" });
+  const r = await api("GET", "/api/core", undefined, { "X-Ultron-Token": "wrong" });
   assert.equal(r.status, 401);
 });
 
@@ -83,7 +83,7 @@ test("old key endpoint no longer leaks the Gemini key", async () => {
 });
 
 test("DNS rebinding: foreign Host header is refused", async () => {
-  const r = await raw("GET", "/api/core", { Host: `evil.example:${PORT}`, "X-Maya-Token": TOKEN });
+  const r = await raw("GET", "/api/core", { Host: `evil.example:${PORT}`, "X-Ultron-Token": TOKEN });
   assert.equal(r.status, 421);
 });
 
@@ -92,7 +92,7 @@ test("cross-origin requests are refused even with a token", async () => {
     Host: `localhost:${PORT}`,
     Origin: "https://evil.example",
     "Content-Type": "application/json",
-    "X-Maya-Token": TOKEN,
+    "X-Ultron-Token": TOKEN,
   }, JSON.stringify({ content: "x" }));
   assert.equal(r.status, 403);
 });
@@ -179,4 +179,19 @@ test("production bundle contains no API key", () => {
     const c = fs.readFileSync(full, "utf8");
     assert.ok(!/AIza[0-9A-Za-z_-]{20,}/.test(c), `key-like string in ${f}`);
   }
+});
+
+test("local mode works without any API key", async () => {
+  const r = await api("POST", "/api/local/chat", { text: "open whatsapp" });
+  assert.equal(r.json.ok, true);
+  assert.equal(r.json.source, "command");
+  assert.deepEqual(r.json.action, { action: "open_app", target: "WhatsApp" });
+  const chat = await api("POST", "/api/local/chat", { text: "tell me a story" });
+  assert.equal(chat.json.ok, true);
+  assert.ok(["help", "ollama"].includes(chat.json.source));
+});
+
+test("local chat also needs the session token", async () => {
+  const r = await fetch(BASE + "/api/local/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(r.status, 401);
 });

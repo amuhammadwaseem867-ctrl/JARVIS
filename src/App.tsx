@@ -35,7 +35,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { HologramCore } from '@/components/ui/hologram-core';
-import { AIRALiveService } from './services/geminiLiveService';
+import { AIRALiveService, type AIRALiveCallbacks } from './services/geminiLiveService';
+import { LocalAssistantService, type AssistantEngine } from './services/localAssistantService';
 
 interface DesktopPermissionsStatus {
   platform: string;
@@ -320,13 +321,13 @@ const NeuralCoreDeck = ({
       return 'Connection failed';
     }
     if (status === 'INITIALIZING...' || status === 'CONNECTING...') {
-      return 'Aira is connecting...';
+      return 'Ultron is connecting...';
     }
     if (!isActive) {
-      return 'Aira is ready';
+      return 'Ultron is ready';
     }
-    if (airaEmotion === 'THINKING') return 'Aira is thinking';
-    return 'Aira is listening';
+    if (airaEmotion === 'THINKING') return 'Ultron is thinking';
+    return 'Ultron is listening';
   }, [isActive, status, airaEmotion]);
 
   return (
@@ -987,7 +988,7 @@ const VisualHub = ({
            <div className={`w-3 h-3 rounded-full ${activeVisual ? 'bg-dash-accent animate-pulse shadow-[0_0_10px_#00f2ff]' : 'bg-white/10'}`} />
            <div className="flex flex-col">
              <h2 className="text-sm font-black text-white uppercase tracking-[0.3em] italic">Visual_Intelligence_Node</h2>
-             <p className="text-[9px] text-dash-text-muted uppercase font-mono tracking-widest">{activeVisual ? 'Analysis_Online / Source: AIRA_Core' : 'Awaiting_Command_Input'}</p>
+             <p className="text-[9px] text-dash-text-muted uppercase font-mono tracking-widest">{activeVisual ? 'Analysis_Online / Source: Ultron_Core' : 'Awaiting_Command_Input'}</p>
            </div>
         </div>
         
@@ -1055,7 +1056,7 @@ const VisualHub = ({
                </div>
                <div className="flex flex-col items-center gap-2">
                   <h3 className="text-2xl font-black text-white uppercase tracking-widest italic">Awaiting Input</h3>
-                  <p className="text-xs text-dash-text-muted uppercase tracking-[0.2em]">AIRA is ready for voice, vision &amp; system control.</p>
+                  <p className="text-xs text-dash-text-muted uppercase tracking-[0.2em]">Ultron is ready for voice, vision &amp; system control.</p>
                </div>
              </div>
 
@@ -1129,9 +1130,9 @@ const SidebarRight = ({
           <div className="flex flex-col">
             <div className="flex items-center gap-2 mb-1">
               <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-dash-accent animate-pulse shadow-[0_0_8px_#00f2ff]' : 'bg-red-500'}`} />
-              <h2 className="text-lg font-black text-white italic tracking-tighter uppercase">AIRA_v1</h2>
+              <h2 className="text-lg font-black text-white italic tracking-tighter uppercase">ULTRON</h2>
             </div>
-            <p className="text-[9px] text-dash-text-muted font-mono tracking-widest uppercase">Neural_Sass_Interface / {isActive ? 'active' : 'idle'}</p>
+            <p className="text-[9px] text-dash-text-muted font-mono tracking-widest uppercase">Command_Interface / {status === 'LOCAL MODE' ? 'local' : isActive ? 'active' : 'idle'}</p>
           </div>
           <div className="flex gap-2">
             <button 
@@ -1204,7 +1205,7 @@ const SidebarRight = ({
               {!isActive && messages.length === 0 && (
                 <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 opacity-20 mt-20">
                   <MicOff className="w-16 h-16 text-dash-text-muted" />
-                  <p className="text-xs uppercase tracking-widest font-mono">Activate AIRA to start the conversation.</p>
+                  <p className="text-xs uppercase tracking-widest font-mono">Activate Ultron to start the conversation.</p>
                 </div>
               )}
            </div>
@@ -1245,7 +1246,7 @@ const SidebarRight = ({
                   disabled={!isActive}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder={isActive ? "Message AIRA..." : "ACTIVATE TO INPUT..."}
+                  placeholder={isActive ? "Message Ultron..." : "ACTIVATE TO INPUT..."}
                   className="flex-1 bg-transparent border-none focus:outline-none text-[11px] text-white font-medium placeholder:text-dash-text-muted/50 tracking-wide disabled:cursor-not-allowed px-1"
                 />
                 <button 
@@ -1260,7 +1261,7 @@ const SidebarRight = ({
            
            <div className="flex items-center justify-between text-[8px] font-mono text-dash-text-muted/40 uppercase tracking-[0.3em]">
              <div className="flex items-center gap-3">
-               <span className={isActive ? "text-dash-accent" : ""}>{isActive ? 'AIRA_Live_Active' : 'Offline'}</span>
+               <span className={isActive ? "text-dash-accent" : ""}>{isActive ? 'Ultron_Live' : 'Offline'}</span>
                <div className="w-1 h-1 rounded-full bg-dash-accent/30" />
                <span>Latency: {isActive ? '24ms' : '--'}</span>
              </div>
@@ -1471,7 +1472,7 @@ export default function App() {
   const [airaEmotion, setAiraEmotion] = React.useState<string>('READY');
   const [userEmotion, setUserEmotion] = React.useState<string>('CHILL');
   const [selectedVoice, setSelectedVoice] = React.useState<string>('Aoede');
-  const airaRef = React.useRef<AIRALiveService | null>(null);
+  const airaRef = React.useRef<AssistantEngine | null>(null);
   const isConnectingRef = React.useRef(false);
 
   // Camera State
@@ -1664,7 +1665,7 @@ export default function App() {
     const voiceToUse =
       overrideVoice || activeState.settings.voice.voiceName || selectedVoice || 'Aoede';
 
-    // Maya Secure: the browser never sees the Gemini key. The backend mints a
+    // Ultron: the browser never sees the Gemini key. The backend mints a
     // short-lived, single-use Live token for this session.
     let apiKey = '';
     try {
@@ -1674,11 +1675,8 @@ export default function App() {
     } catch (e) {
       console.warn('Failed to get a voice session token:', e);
     }
-    if (!apiKey) {
-      setStatus('MISSING_API_KEY');
-      setIsActive(false);
-      return;
-    }
+    // No Gemini key: Ultron runs in local mode instead of refusing to start.
+    const useLocal = !apiKey;
     isConnectingRef.current = true;
     setIsActive(true);
     setStatus('CONNECTING...');
@@ -1708,15 +1706,13 @@ export default function App() {
         ? `## ENABLED SKILLS\nFollow these saved skills when relevant:\n${activeSkills.map((s) => `### ${s.name}\nWhen: ${s.whenToUse || s.description}\n${s.content}`).join('\n\n')}`
         : '',
       `## TALKING TONE, EMOTION & CAMERA AWARENESS\nNever sound robotic or scripted. Mirror the user's language naturally (Hindi, Hinglish, Urdu, or English) with expressive warmth, wit, and real emotional intelligence. Read their mood from both voice tone and live webcam frames (expression, posture, fatigue) and call 'updateEmotionState' when you notice their mood shift. Current camera mood reading: ${userEmotion}${cameraInsight ? ` (${cameraInsight})` : ''}.`,
-      `## SYSTEM CONTROL TOOLS\nYou have NO built-in WhatsApp or Instagram UI inside AIRA. Whenever the user asks to open WhatsApp or any Mac app, or send a WhatsApp message, control their laptop directly using 'openApplication' (opens native WhatsApp.app, Google Chrome, Finder, Notes, Safari, etc.; Terminal and code runners are blocked), 'controlSystem' (screenshots, mouse clicks, typing, hotkeys, volume, clipboard, notifications, files in the Maya workspace folder, read-only command presets), and 'screenTask' (multi-step screen-reading and click/type agent). Risky actions show the user an approval dialog first; if they decline, do not retry. STRICT HONESTY RULE: ONLY report success when 'openApplication', 'controlSystem', or 'screenTask' actually returns ok: true / done: true. If Accessibility or Screen Recording permission is missing or a step fails, tell the user honestly. ALWAYS explain visuals verbally after generating them.`,
+      `## SYSTEM CONTROL TOOLS\nYou have NO built-in WhatsApp or Instagram UI inside Ultron. Whenever the user asks to open WhatsApp or any Mac app, or send a WhatsApp message, control their laptop directly using 'openApplication' (opens native WhatsApp.app, Google Chrome, Finder, Notes, Safari, etc.; Terminal and code runners are blocked), 'controlSystem' (screenshots, mouse clicks, typing, hotkeys, volume, clipboard, notifications, files in the Ultron workspace folder, read-only command presets), and 'screenTask' (multi-step screen-reading and click/type agent). Risky actions show the user an approval dialog first; if they decline, do not retry. STRICT HONESTY RULE: ONLY report success when 'openApplication', 'controlSystem', or 'screenTask' actually returns ok: true / done: true. If Accessibility or Screen Recording permission is missing or a step fails, tell the user honestly. ALWAYS explain visuals verbally after generating them.`,
     ]
       .filter(Boolean)
       .join('\n\n');
 
     // Always recreate service to ensure fresh state
-    airaRef.current = new AIRALiveService(
-      apiKey,
-      {
+    const callbacks: AIRALiveCallbacks = {
         onTranscription: (text, isUser) => {
           if (isUser) {
             const uEmo = detectUserEmotion(text);
@@ -1733,7 +1729,7 @@ export default function App() {
               id: Math.random().toString(36).substr(2, 9),
               type: isUser ? 'user' : 'ai',
               text,
-              label: isUser ? 'USER_VOICE' : 'AIRA_SASS',
+              label: isUser ? 'USER_VOICE' : 'ULTRON',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             },
           ]);
@@ -1762,13 +1758,13 @@ export default function App() {
         onSystemEvent: (label, detail) => {
           setSystemBanner(`${label}: ${detail}`);
         },
-      },
-      voiceToUse,
-      {
-        systemInstruction: promptParts,
-        modelId: activeState.settings.voice.modelId,
-      }
-    );
+    };
+    airaRef.current = useLocal
+      ? new LocalAssistantService(callbacks, voiceToUse, promptParts)
+      : new AIRALiveService(apiKey, callbacks, voiceToUse, {
+          systemInstruction: promptParts,
+          modelId: activeState.settings.voice.modelId,
+        });
     try {
       await airaRef.current.connect();
     } catch (err) {
@@ -1935,7 +1931,7 @@ export default function App() {
                 <div>
                   <h3 className="text-base font-semibold text-white">macOS System Control Permissions</h3>
                   <p className="text-xs text-white/55">
-                    Allow Accessibility &amp; Screen Recording so AIRA can control mouse, keyboard &amp; apps.
+                    Allow Accessibility &amp; Screen Recording so Ultron can control mouse, keyboard &amp; apps.
                   </p>
                 </div>
               </div>
@@ -2001,7 +1997,7 @@ export default function App() {
                 type="button"
                 onClick={async () => {
                   await window.airaDesktop?.revealAppInFinder?.();
-                  setPermActionMsg('Opened AIRA AI Assistant.app in Finder — you can drag it into Accessibility/Screen Recording.');
+                  setPermActionMsg('Opened Ultron.app in Finder — you can drag it into Accessibility/Screen Recording.');
                 }}
                 className="px-3.5 py-2 rounded-xl bg-white/8 hover:bg-white/15 text-xs text-white flex items-center gap-1.5 cursor-pointer"
               >
@@ -2014,7 +2010,7 @@ export default function App() {
                   onClick={async () => {
                     const res = await window.airaDesktop?.installToApplications?.();
                     if (res?.ok) {
-                      setPermActionMsg('Copied to /Applications/AIRA AI Assistant.app!');
+                      setPermActionMsg('Copied to /Applications/Ultron.app!');
                       void refreshMacPermissions();
                     } else {
                       setPermActionMsg(res?.error || 'Could not copy to /Applications');
@@ -2073,7 +2069,7 @@ export default function App() {
                   </p>
                   <div className="mt-auto pt-8 border-t border-white/5 flex flex-col gap-4">
                     <div className="flex justify-between text-[10px] uppercase font-mono text-white/30">
-                      <span>Source: AIRA_Core</span>
+                      <span>Source: Ultron_Core</span>
                       <span>{activeVisual.timestamp}</span>
                     </div>
                   </div>

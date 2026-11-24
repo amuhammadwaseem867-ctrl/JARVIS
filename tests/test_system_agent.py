@@ -19,7 +19,7 @@ def run(payload, env=None):
 class AgentTests(unittest.TestCase):
     def setUp(self):
         self.home = tempfile.mkdtemp()
-        self.env = {"HOME": self.home, "PATH": "/usr/bin:/bin", "MAYA_WORKSPACE": os.path.join(self.home, "MayaWorkspace")}
+        self.env = {"HOME": self.home, "PATH": "/usr/bin:/bin", "ULTRON_WORKSPACE": os.path.join(self.home, "UltronWorkspace")}
 
     def test_shell_removed(self):
         r = run({"action": "run_shell", "command": "touch /tmp/pwned"}, self.env)
@@ -36,7 +36,7 @@ class AgentTests(unittest.TestCase):
             self.assertFalse(r["ok"], p)
 
     def test_symlink_escape_blocked(self):
-        ws = Path(self.env["MAYA_WORKSPACE"]); ws.mkdir(parents=True)
+        ws = Path(self.env["ULTRON_WORKSPACE"]); ws.mkdir(parents=True)
         secret = Path(self.home) / "secret.txt"; secret.write_text("top secret")
         (ws / "link").symlink_to(secret)
         r = run({"action": "fs_op", "operation": "read", "path": "link"}, self.env)
@@ -53,7 +53,7 @@ class AgentTests(unittest.TestCase):
         self.assertFalse(r["ok"])
 
     def test_workspace_cannot_be_home(self):
-        env = dict(self.env, MAYA_WORKSPACE=self.home)
+        env = dict(self.env, ULTRON_WORKSPACE=self.home)
         self.assertFalse(run({"action": "fs_op", "operation": "list", "path": ""}, env)["ok"])
 
     def test_bad_urls_rejected(self):

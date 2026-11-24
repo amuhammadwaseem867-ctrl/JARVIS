@@ -1,12 +1,12 @@
 /**
- * Maya Secure: session bootstrap.
+ * Ultron: session bootstrap.
  *
  * The backend prints (or Electron loads) a link with #token=... in the hash.
  * The hash never reaches the server logs or Referer headers. We move the token
  * into sessionStorage, remove it from the address bar, and attach it to every
  * same-origin /api request.
  */
-const KEY = 'maya_session_token';
+const KEY = 'ultron_session_token';
 let token = '';
 
 function readToken(): string {
@@ -40,7 +40,7 @@ export function installSecureFetch() {
     const target = new URL(url, window.location.origin);
     if (target.origin === window.location.origin && target.pathname.startsWith('/api/')) {
       const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
-      headers.set('X-Maya-Token', token);
+      headers.set('X-Ultron-Token', token);
       return nativeFetch(input, { ...init, headers, credentials: 'same-origin' });
     }
     return nativeFetch(input, init);
