@@ -1,0 +1,14 @@
+Maya Secure
+Copyright 2026 Maya Secure contributors
+
+This product is a modified version of AIRA AI Assistant
+(https://github.com/arvindcodex/Maya, commit 59518f6fcb12c5a9eaab21615dd4b7d258b0cc77),
+Copyright Arvind Kumar (@arvindcodex), licensed under the Apache License, Version 2.0.
+The original README is kept as README.upstream.md.
+
+Files modified from the original: server.ts, python/system_agent.py,
+electron/main.cjs, src/App.tsx, src/main.tsx, src/components/CoreModals.tsx,
+src/services/geminiLiveService.ts, src/index.css, index.html, vite.config.ts,
+package.json, package-lock.json. New files: server/security.ts, src/security/*,
+src/styles/shadcn-tailwind.css (MIT, shadcn), tests/*, SECURITY.md, NOTICE.
+See SECURITY.md for what changed and why.
