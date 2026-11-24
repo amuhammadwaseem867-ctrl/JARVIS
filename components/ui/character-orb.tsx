@@ -12,7 +12,7 @@ interface CharacterOrbProps {
 
 /**
  * Silvia's character: a round portrait with two orbiting rings, a halo that
- * follows the voice level, slow breathing and a scan line. Pure CSS, so it is
+ * follows the voice level, slow breathing and her live talking face. Pure CSS, so it is
  * light on phones; all motion stops under "reduce motion".
  */
 export function CharacterOrb({ className, isActive = false, audioLevel = 0, src = "/character/silvia.jpg" }: CharacterOrbProps) {
@@ -35,7 +35,6 @@ export function CharacterOrb({ className, isActive = false, audioLevel = 0, src 
       </svg>
       <div className="ultron-orb-face absolute inset-[12%] overflow-hidden rounded-full shadow-[0_0_0_1px_rgba(34,211,238,.5),0_24px_70px_rgba(34,211,238,.18)]">
         <TalkingFace src={src} isActive={isActive} className="block h-full w-full object-cover" />
-        <div className="ultron-orb-scan pointer-events-none absolute inset-0" aria-hidden="true" />
       </div>
     </div>
   );

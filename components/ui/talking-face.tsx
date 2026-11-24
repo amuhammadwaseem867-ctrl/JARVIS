@@ -66,65 +66,65 @@ const float MW = ${FACE.mouthHalfWidth}.;
 vec2 rot(vec2 v, float a) { float c = cos(a), s = sin(a); return vec2(c * v.x - s * v.y, s * v.x + c * v.y); }
 vec3 tex(vec2 px) { return texture2D(uTex, clamp(px / S, 0.0, 1.0)).rgb; }
 
-// One eye: returns the source pixel (brows lifted). When the lid is down,
-// lidSrc is the upper lid skin to show and cover says how much of it.
-vec2 eye(vec2 p, vec2 c, inout vec2 lidSrc, inout float cover, inout float lash) {
+// Everything below is a smooth warp of the photo (no pasted patches), so no
+// edges or seams can appear. Only the lid line and the inner mouth get a soft
+// shade.
+
+// One eye: lifts the brow and slides the upper lid down over the eye.
+vec2 eye(vec2 p, vec2 c) {
   vec2 q = rot(p - c, -EA);
-  // Brows: pull the band above the eye upwards.
-  float bw = exp(-pow((q.y + 52.0) / 26.0, 2.0)) * smoothstep(HW + 30.0, HW - 10.0, abs(q.x));
+  float bw = exp(-pow((q.y + 52.0) / 26.0, 2.0)) * exp(-pow(q.x / (HW + 15.0), 4.0));
   q.y += uBrow * 6.0 * bw;
-  vec2 src = c + rot(q, EA);
-  if (uBlink > 0.01 && abs(q.x) < HW) {
-    float s = sqrt(1.0 - (q.x / HW) * (q.x / HW));
-    float top = -HH * s - 3.0;
-    float bot = HH * s * 0.8;
-    float lid = mix(top, bot, uBlink);
-    if (q.y < lid + 1.5) {
-      float t = clamp((q.y - top) / max(lid - top, 1.0), 0.0, 1.0);
-      // Lid skin from the crease area, stretched down over the eye.
-      lidSrc = c + rot(vec2(q.x * 0.96, top - 24.0 + t * 12.0), EA);
-      cover = smoothstep(top - 4.0, top + 3.0, q.y) * smoothstep(0.0, 0.35, s) * smoothstep(lid + 1.5, lid - 0.5, q.y);
+  if (uBlink > 0.01) {
+    float s = exp(-pow(q.x / HW, 4.0));             // soft at the eye corners
+    float top = -HH - 4.0;
+    float travel = HH * 2.05 * s;
+    float lid = top + uBlink * travel;
+    float a = top - 22.0;                          // lid crease; brows stay put
+    if (q.y > a && q.y < lid) {
+      // The lid skin between crease and lashes stretches down to the new lid line.
+      q.y = a + (q.y - a) * (top - a) / (lid - a);
     }
-    lash = smoothstep(1.8, 0.0, abs(q.y - lid)) * uBlink * smoothstep(0.1, 0.5, s);
   }
-  return src;
+  return c + rot(q, EA);
+}
+
+float lidLine(vec2 p, vec2 c) {
+  vec2 q = rot(p - c, -EA);
+  float s = exp(-pow(q.x / HW, 4.0));
+  float lid = -HH - 4.0 + uBlink * HH * 2.05 * s;
+  return exp(-pow((q.y - lid) / 2.0, 2.0)) * s * smoothstep(0.15, 0.6, uBlink);
 }
 
 void main() {
   vec2 p = vUv * S;
-  float lash = 0.0, cover = 0.0;
-  vec2 lidSrc = p;
+  float lash = 0.0;
   vec2 src = p;
-  if (distance(p, E0) < 110.0) src = eye(p, E0, lidSrc, cover, lash);
-  else if (distance(p, E1) < 110.0) src = eye(p, E1, lidSrc, cover, lash);
+  if (distance(p, E0) < 120.0) { src = eye(p, E0); lash = lidLine(p, E0); }
+  else if (distance(p, E1) < 120.0) { src = eye(p, E1); lash = lidLine(p, E1); }
 
-  // Jaw: everything below the lip line drops, most at the centre of the lips.
+  // Jaw: a smooth field that drops the lower lip and chin; the upper lip and
+  // upper teeth stay where they are.
   vec2 m = rot(p - MC, -MA);
-  m.y += 0.0016 * m.x * m.x;          // the lip line curves up into the smile
-  float lips = clamp(1.0 - (m.x / MW) * (m.x / MW), 0.0, 1.0);
-  float jaw = clamp(1.0 - (m.x / 170.0) * (m.x / 170.0), 0.0, 1.0);
-  float open = uMouth * 15.0;
-  float gap = open * lips * lips;
-  float inside = 0.0;
-  if (m.y > 0.0 && m.y < 230.0 && uMouth > 0.001) {
-    float w = mix(lips, jaw, smoothstep(0.0, 45.0, m.y)) * smoothstep(230.0, 60.0, m.y);
-    if (m.y < gap) {
-      inside = smoothstep(0.05, 0.45, lips);
-    } else {
-      m.y -= open * w;
-      m.y -= 0.0016 * m.x * m.x;
-      src = MC + rot(m, MA);
-    }
+  m.y += 0.0016 * m.x * m.x;                       // follow the smile curve
+  float open = uMouth * 12.0;
+  float width = mix(MW * 0.7, 150.0, smoothstep(0.0, 70.0, m.y));
+  float hx = exp(-pow(m.x / width, 4.0));
+  float vy = smoothstep(-24.0, 4.0, m.y) * (1.0 - smoothstep(80.0, 230.0, m.y));
+  float drop = open * hx * vy;
+  float shade = 0.0;
+  if (drop > 0.01) {
+    vec2 ms = m;
+    ms.y -= drop;
+    ms.y -= 0.0016 * ms.x * ms.x;
+    src = MC + rot(ms, MA);
+    // A soft shadow in the stretched opening, strongest at its centre.
+    shade = uMouth * exp(-pow(m.x / (MW * 0.75), 4.0)) * exp(-pow((m.y - open * 0.35) / (4.0 + open * 0.5), 2.0));
   }
 
   vec3 col = tex(src);
-  if (cover > 0.0) col = mix(col, tex(lidSrc), cover);
-  if (inside > 0.0) {
-    float t = clamp(m.y / max(gap, 1.0), 0.0, 1.0);
-    vec3 mouthIn = mix(vec3(0.30, 0.10, 0.11), vec3(0.16, 0.05, 0.06), t);
-    col = mix(col, mouthIn, inside);
-  }
-  col = mix(col, vec3(0.10, 0.06, 0.06), lash * 0.7);
+  col *= 1.0 - shade * 0.55;
+  col = mix(col, vec3(0.10, 0.06, 0.06), lash * 0.65);
   gl_FragColor = vec4(col, 1.0);
 }`;
 
