@@ -5,13 +5,13 @@ import path from "path";
 import type { Request } from "express";
 
 /**
- * Ultron phone mode: use Ultron from an iPhone or Android browser on the same
+ * Silvia phone mode: use Silvia from an iPhone or Android browser on the same
  * Wi-Fi, microphone included.
  *
- * Phones only allow the microphone on HTTPS pages, so Ultron serves itself a
+ * Phones only allow the microphone on HTTPS pages, so Silvia serves itself a
  * second time on the local network over HTTPS, with a certificate made on this
  * computer. Nobody on the Wi-Fi gets in without pairing first: scanning the QR
- * code shown in Ultron on the computer, or typing its 6-digit code. A paired
+ * code shown in Silvia on the computer, or typing its 6-digit code. A paired
  * phone gets a long random cookie and stays paired for 30 days.
  *
  * Same design as the original JARVIS phone mode.
@@ -58,7 +58,7 @@ export function isPhoneRequest(req: Request): boolean {
 
 /* ---------- certificate ---------- */
 
-const CERT_FORMAT = "v2"; // v2: leaf signed by a local Ultron CA (iPhone can trust it)
+const CERT_FORMAT = "v2"; // v2: leaf signed by a local Silvia CA (iPhone can trust it)
 
 async function selfsignedGenerate(): Promise<(attrs: unknown, opts: unknown) => Promise<{ private: string; cert: string }>> {
   const selfsigned: any = await import("selfsigned");
@@ -78,7 +78,7 @@ async function loadOrCreateCa(): Promise<{ key: string; cert: string }> {
     return { key: fs.readFileSync(keyFile, "utf8"), cert: fs.readFileSync(certFile, "utf8") };
   }
   const gen = await selfsignedGenerate();
-  const pems = await gen([{ name: "commonName", value: "Ultron local CA (this computer only)" }, { name: "organizationName", value: "Ultron" }], {
+  const pems = await gen([{ name: "commonName", value: "Silvia local CA (this computer only)" }, { name: "organizationName", value: "Silvia" }], {
     keySize: 2048,
     algorithm: "sha256",
     notAfterDate: new Date(Date.now() + 10 * 365 * 86400_000),
@@ -241,7 +241,7 @@ export function pairPage(error = ""): string {
   const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#05070a"><title>Pair with Ultron</title>
+<meta name="theme-color" content="#05070a"><title>Pair with Silvia</title>
 <style>
 :root{--bg:#05070a;--card:#0d1117;--line:rgba(255,255,255,.1);--text:#f4f6f8;--muted:#8b949e;--accent:#00e5f2;--err:#ff6b6b}
 *{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px 16px}
@@ -254,12 +254,12 @@ input:focus{outline:2px solid var(--accent);outline-offset:2px}
 button{margin-top:16px;width:100%;height:50px;border:0;border-radius:12px;background:var(--accent);color:#001316;font-size:16px;font-weight:650}
 .err{color:var(--err);font-size:14px;margin:12px 0 0}
 </style></head><body><main>
-<p class="k">Ultron</p><h1>Pair this phone</h1>
-<p>On your computer, open Ultron and press <strong>Connect phone</strong>. Scan the QR code, or type the 6-digit code here.</p>
+<p class="k">Silvia</p><h1>Pair this phone</h1>
+<p>On your computer, open Silvia and press <strong>Connect phone</strong>. Scan the QR code, or type the 6-digit code here.</p>
 <form method="post" action="/pair"><label for="c">Pairing code</label>
 <input id="c" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus>
 <button type="submit">Pair</button>${error ? `<p class="err" role="alert">${esc(error)}</p>` : ""}</form>
-<p style="margin:18px 0 0;font-size:14px"><a href="/install" style="color:var(--accent)">Install Ultron as an app on this phone</a></p>
+<p style="margin:18px 0 0;font-size:14px"><a href="/install" style="color:var(--accent)">Install Silvia as an app on this phone</a></p>
 </main></body></html>`;
 }
 
@@ -268,7 +268,7 @@ button{margin-top:16px;width:100%;height:50px;border:0;border-radius:12px;backgr
 export function installPage(): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#05070a"><title>Install Ultron</title>
+<meta name="theme-color" content="#05070a"><title>Install Silvia</title>
 <style>
 :root{--bg:#05070a;--card:#0d1117;--line:rgba(255,255,255,.1);--text:#f4f6f8;--muted:#8b949e;--accent:#00e5f2}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:28px 16px}
@@ -278,21 +278,21 @@ ol{margin:0;padding-left:22px;color:var(--muted)}li{margin:0 0 10px}strong{color
 a.btn{display:block;text-align:center;margin:14px 0 6px;height:50px;line-height:50px;border-radius:12px;background:var(--accent);color:#001316;font-weight:650;text-decoration:none}
 .note{font-size:13px;color:var(--muted);border-top:1px solid var(--line);margin-top:28px;padding-top:16px}
 </style></head><body><main>
-<p class="k">Ultron</p><h1>Install Ultron on your phone</h1>
+<p class="k">Silvia</p><h1>Install Silvia on your phone</h1>
 <h2>iPhone (Safari)</h2>
 <ol>
 <li><strong>Trust this computer once.</strong> Tap the button below and choose <strong>Allow</strong>.
-<a class="btn" href="/ultron-ca.crt">Download Ultron certificate</a></li>
+<a class="btn" href="/ultron-ca.crt">Download Silvia certificate</a></li>
 <li>Open <strong>Settings</strong>, tap <strong>Profile Downloaded</strong> at the top, then <strong>Install</strong>.</li>
-<li>Go to <strong>Settings, General, About, Certificate Trust Settings</strong> and switch on <strong>Ultron local CA</strong>.</li>
+<li>Go to <strong>Settings, General, About, Certificate Trust Settings</strong> and switch on <strong>Silvia local CA</strong>.</li>
 <li>Back in Safari, open this page's address again, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
-<li>Open Ultron from the new icon and pair once with the 6-digit code from your computer.</li>
+<li>Open Silvia from the new icon and pair once with the 6-digit code from your computer.</li>
 </ol>
 <h2>Android (Chrome)</h2>
 <ol>
 <li>Tap the <strong>three dots</strong> menu, then <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-<li>Open Ultron from the new icon and pair once.</li>
+<li>Open Silvia from the new icon and pair once.</li>
 </ol>
-<p class="note">The certificate is made on your computer and only works for Ultron on your own Wi-Fi. To remove it later, delete the profile in Settings, General, VPN and Device Management. Voice works while Ultron is open on screen; phones do not let web apps listen when locked or in the background.</p>
+<p class="note">The certificate is made on your computer and only works for Silvia on your own Wi-Fi. To remove it later, delete the profile in Settings, General, VPN and Device Management. Voice works while Silvia is open on screen; phones do not let web apps listen when locked or in the background.</p>
 </main></body></html>`;
 }

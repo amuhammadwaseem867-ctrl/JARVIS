@@ -1,15 +1,15 @@
 /**
- * Ultron wake word: say "Ultron" and the assistant switches itself on.
+ * Silvia wake word: say "Silvia" and the assistant switches itself on.
  *
  * Two sources, whichever is available:
  *  1. The background listener on the computer (python/wake_listener.py),
  *     delivered over /api/events. Works in the desktop app and the browser.
- *  2. The browser's own speech recognition while Ultron is idle (Chrome, Edge,
+ *  2. The browser's own speech recognition while Silvia is idle (Chrome, Edge,
  *     Safari, and phone browsers). Not available inside the desktop app.
  */
 
-const ALIASES = /\b(?:(?:hey|hi|ok|okay|suno)\s+)?(ultron|ultran|altron|ultra\s?on|all\s?tron|wake[\s-]?up)\b[\s,.:;!-]*/i;
-// "Ultron, wake up" only wakes it; "wake up" is not sent as a command.
+const ALIASES = /\b(?:(?:hey|hi|ok|okay|suno)\s+)?(s[iy]lvi?y?a|salvia|selvia|sil\s?via|ultron|ultran|altron|ultra\s?on|all\s?tron|wake[\s-]?up)\b[\s,.:;!-]*/i;
+// "Silvia, wake up" only wakes it; "wake up" is not sent as a command.
 const WAKE_UP_ONLY = /^(?:please\s+)?wake[\s-]?up(?:\s+please)?[\s.!]*$/i;
 
 /** Returns the command after the wake word, "" if only woken, or null if not said. */
@@ -56,7 +56,7 @@ export class WakeWatcher {
     this.setBrowserListening(false);
   }
 
-  /** Browser wake listening runs only while Ultron is idle, so it never fights the live mic. */
+  /** Browser wake listening runs only while Silvia is idle, so it never fights the live mic. */
   setBrowserListening(on: boolean) {
     this.browserWanted = on;
     if (on) this.startBrowser();

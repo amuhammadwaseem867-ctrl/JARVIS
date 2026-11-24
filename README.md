@@ -1,4 +1,4 @@
-# Ultron
+# Silvia
 
 Your personal command intelligence: real-time voice, camera awareness, memory, skills, personas and approved macOS desktop control. Works with a Gemini key, and in local mode without one. Nothing risky happens without your approval, and your keys never leave your own machine.
 
@@ -21,16 +21,16 @@ Ask for several things at once: "open YouTube and set volume to 40, then check b
 
 ## Full Control mode
 
-Set `ULTRON_FULL_CONTROL=1` in `.env` (it is on in `.env.example`). Ultron can then run any shell command, open Terminal, use every shortcut and read or change any file in your home folder, with no approval prompts. A red "Full control on" badge stays on screen while it is active, every action is written to the audit log, and Ultron refuses to start in this mode if `ULTRON_HOST` exposes it to other devices.
+Set `ULTRON_FULL_CONTROL=1` in `.env` (it is on in `.env.example`). Silvia can then run any shell command, open Terminal, use every shortcut and read or change any file in your home folder, with no approval prompts. A red "Full control on" badge stays on screen while it is active, every action is written to the audit log, and Silvia refuses to start in this mode if `ULTRON_HOST` exposes it to other devices.
 
-Risk you accept: text Ultron reads (web pages, messages, files, the screen) could try to trick it into running harmful commands. Remove the line to return to approval mode.
+Risk you accept: text Silvia reads (web pages, messages, files, the screen) could try to trick it into running harmful commands. Remove the line to return to approval mode.
 
 ## Local mode (no API key)
 
-Ultron starts even without a Gemini key. Press Connect and it runs locally:
+Silvia starts even without a Gemini key. Press Connect and it runs locally:
 
 * **Built-in commands**, in English and Roman Urdu: "what's the time", "aaj ki date", "open WhatsApp", "chrome kholo", "volume 40", "mute", "battery", "disk space", "Wi-Fi".
-* **Free conversation** through [Ollama](https://ollama.com) on your own computer: install it, run `ollama pull llama3.2`, and Ultron uses it automatically. Nothing leaves your machine.
+* **Free conversation** through [Ollama](https://ollama.com) on your own computer: install it, run `ollama pull llama3.2`, and Silvia uses it automatically. Nothing leaves your machine.
 * **Voice**: speech input uses the browser's recognition where available (Chrome, Edge, Safari); replies are spoken with your system voices. Typing always works.
 
 The local model only writes text. It is never given control of your computer; commands still go through the approval rules. Camera vision and the screen agent need a Gemini key.
@@ -42,14 +42,14 @@ The local model only writes text. It is never given control of your computer; co
 
 ## Wake word and auto-start
 
-Say **"Ultron"** and it switches itself on, no code, no Start button. "Ultron, open WhatsApp" wakes it and runs the command; "Hey Ultron" or **"Wake up"** wakes it and waits for you; "Wake up, open YouTube" works too.
+Say **"Silvia"** and it switches itself on, no code, no Start button. "Silvia, open WhatsApp" wakes it and runs the command; "Hey Silvia" or **"Wake up"** wakes it and waits for you; "Wake up, open YouTube" works too.
 
-* **Desktop app**: install the free offline speech engine once with `python3 -m pip install faster-whisper sounddevice numpy`. Ultron then starts hidden at login (tray icon), listens in the background and opens itself when called. Speech is transcribed on your computer. `Cmd/Ctrl + Shift + U` also opens it. Turn auto-start off in the tray menu or with `ULTRON_AUTOSTART=0`.
-* **Browser tab**: while Ultron is idle, Chrome, Edge and Safari listen for "Ultron" with their built-in speech recognition, no install needed.
+* **Desktop app**: install the free offline speech engine once with `python3 -m pip install faster-whisper sounddevice numpy`. Silvia then starts hidden at login (tray icon), listens in the background and opens itself when called. Speech is transcribed on your computer. `Cmd/Ctrl + Shift + U` also opens it. Turn auto-start off in the tray menu or with `ULTRON_AUTOSTART=0`.
+* **Browser tab**: while Silvia is idle, Chrome, Edge and Safari listen for "Silvia" with their built-in speech recognition, no install needed.
 
 ## Phone (iPhone and Android)
 
-With `ULTRON_PHONE=1` (on in `.env.example`), use Ultron from your phone's browser, microphone included, while it is on the same Wi-Fi as your computer:
+With `ULTRON_PHONE=1` (on in `.env.example`), use Silvia from your phone's browser, microphone included, while it is on the same Wi-Fi as your computer:
 
 1. On the computer, press **Connect phone** (bottom left).
 2. Scan the QR code with the phone camera, or open the shown address and type the 6-digit code.
@@ -72,7 +72,7 @@ cp .env.example .env        # then put your key in GEMINI_API_KEY
 npm run dev
 ```
 
-The terminal prints a private link such as `http://localhost:3000/#token=…`. Open that link. Do not share it; anyone with it can use Ultron while it runs.
+The terminal prints a private link such as `http://localhost:3000/#token=…`. Open that link. Do not share it; anyone with it can use Silvia while it runs.
 
 Desktop app (macOS):
 
@@ -84,7 +84,7 @@ For the packaged app, put your `.env` in `~/Library/Application Support/ultron/`
 
 ### Windows
 
-Everything works on Windows 10 and 11, computer control included: opening apps (Start Menu and Store apps such as WhatsApp), links, volume and mute, typing, shortcuts (`ctrl`, `alt`, `shift`, `win`), mouse, screenshots for the screen agent, clipboard, notifications, files and, in Full Control mode, PowerShell commands. It uses only built-in Windows parts (PowerShell and user32), no extra installs. Python is called `python` on Windows; set `ULTRON_PYTHON` in `.env` if yours has another name. If Ultron says a port is busy, it is already running in another window: close that window first.
+Everything works on Windows 10 and 11, computer control included: opening apps (Start Menu and Store apps such as WhatsApp), links, volume and mute, typing, shortcuts (`ctrl`, `alt`, `shift`, `win`), mouse, screenshots for the screen agent, clipboard, notifications, files and, in Full Control mode, PowerShell commands. It uses only built-in Windows parts (PowerShell and user32), no extra installs. Python is called `python` on Windows; set `ULTRON_PYTHON` in `.env` if yours has another name. If Silvia says a port is busy, it is already running in another window: close that window first.
 
 ## Settings
 

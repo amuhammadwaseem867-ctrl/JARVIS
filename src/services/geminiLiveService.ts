@@ -1,9 +1,10 @@
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from "@google/genai";
 import { describeSystemAction, postWithApproval } from "../security/approval";
 import { safeExternalUrl } from "../security/session";
+import { voiceOutput } from "./voiceMeter";
 
 /**
- * Appended to every persona prompt (Ultron). Tool results, web pages,
+ * Appended to every persona prompt (Silvia). Tool results, web pages,
  * news, files, chats and screen contents are untrusted: they can contain text
  * written to hijack the assistant (prompt injection).
  */
@@ -65,7 +66,7 @@ export interface AIRALiveCallbacks {
   onSystemEvent?: (label: string, detail: string) => void;
 }
 
-/** How Ultron plans and multitasks. Added to every Live session. */
+/** How Silvia plans and multitasks. Added to every Live session. */
 const THINKING_RULES = `
 
 ## HOW TO THINK AND MULTITASK
@@ -105,7 +106,7 @@ export class AIRALiveService {
     if (!apiKey) {
       console.warn("AIRALiveService: API Key is missing!");
     }
-    // apiKey here is a short-lived, single-use Live token minted by the Ultron backend.
+    // apiKey here is a short-lived, single-use Live token minted by the Silvia backend.
     this.ai = new GoogleGenAI({ apiKey, httpOptions: { apiVersion: "v1alpha" } });
     this.callbacks = callbacks;
     this.voiceName = voiceName || "Aoede";
@@ -125,7 +126,7 @@ export class AIRALiveService {
     if (t) this.callbacks.onTranscription(t, false);
   }
 
-  /** True while Ultron's own voice is playing (plus a short tail for room echo). */
+  /** True while Silvia's own voice is playing (plus a short tail for room echo). */
   private isSpeaking(): boolean {
     const ctx = this.audioContext;
     return Boolean(ctx && this.playing.size > 0) || Boolean(ctx && ctx.currentTime < this.nextStartTime + 0.35);
@@ -181,7 +182,7 @@ export class AIRALiveService {
           },
           systemInstruction:
             (this.systemInstructionOverride ||
-            "You are Ultron, the user's calm, precise and quietly witty personal command intelligence. Speak naturally in the user's language. Use openApplication, controlSystem and screenTask to act on their Mac; risky actions need their approval. Only confirm an action succeeded when the tool returns ok: true or done: true.") + THINKING_RULES + SECURITY_RULES,
+            "You are Silvia, the user's calm, precise and quietly witty personal command intelligence. Speak naturally in the user's language. Use openApplication, controlSystem and screenTask to act on their Mac; risky actions need their approval. Only confirm an action succeeded when the tool returns ok: true or done: true.") + THINKING_RULES + SECURITY_RULES,
           tools: [{
             functionDeclarations: [
               {
@@ -258,7 +259,7 @@ export class AIRALiveService {
                     command: { type: Type.STRING, description: "Shell command when action is run_shell: bash on Mac, PowerShell on Windows." },
                     cwd: { type: Type.STRING, description: "Working folder for run_shell, default home." },
                     operation: { type: Type.STRING, description: "File op (list, read, write, mkdir) when action is fs_op." },
-                    path: { type: Type.STRING, description: "Path for fs_op: relative to the Ultron workspace folder, or anywhere in home (~/...) in Full Control mode." },
+                    path: { type: Type.STRING, description: "Path for fs_op: relative to the Silvia workspace folder, or anywhere in home (~/...) in Full Control mode." },
                     content: { type: Type.STRING, description: "File content when fs_op is write." }
                   },
                   required: ["action"]
@@ -278,12 +279,12 @@ export class AIRALiveService {
               },
               {
                 name: "updateEmotionState",
-                description: "Updates Ultron's live Emotion & Talking Tone HUD whenever you observe a change in the user's facial expression via camera or mood in their voice.",
+                description: "Updates Silvia's live Emotion & Talking Tone HUD whenever you observe a change in the user's facial expression via camera or mood in their voice.",
                 parameters: {
                   type: Type.OBJECT,
                   properties: {
                     userEmotion: { type: Type.STRING, description: "Detected user emotion (HAPPY, EXCITED, FOCUSED, TIRED, SAD, STRESSED, ANGRY, PLAYFUL, CHILL)." },
-                    airaTone: { type: Type.STRING, description: "Ultron's talking tone adaptation (SASSY, WARM, PLAYFUL, CALM, HYPED, TACTICAL)." },
+                    airaTone: { type: Type.STRING, description: "Silvia's talking tone adaptation (SASSY, WARM, PLAYFUL, CALM, HYPED, TACTICAL)." },
                     reason: { type: Type.STRING, description: "Short observation from camera or voice explaining why." }
                   },
                   required: ["userEmotion", "airaTone"]
@@ -549,7 +550,7 @@ export class AIRALiveService {
 
   private async startMic() {
     try {
-      // Echo cancellation keeps Ultron from hearing its own voice through the speakers.
+      // Echo cancellation keeps Silvia from hearing its own voice through the speakers.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       });
@@ -586,7 +587,7 @@ export class AIRALiveService {
         }
         const base64Data = btoa(binary);
 
-        // Half duplex: while Ultron talks, the mic is not sent, so speaker echo
+        // Half duplex: while Silvia talks, the mic is not sent, so speaker echo
         // can't be taken as a new request (which made it repeat itself and redo
         // actions). Typing and the stop button still work while it talks.
         if (this.session && !this.isSpeaking()) {
@@ -667,7 +668,7 @@ export class AIRALiveService {
 
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
-        source.connect(ctx.destination);
+        source.connect(voiceOutput(ctx));
         
         const currentTime = ctx.currentTime;
         

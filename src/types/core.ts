@@ -86,15 +86,15 @@ export interface CoreStoreState {
 export const BUILT_IN_CHARACTERS: CharacterProfile[] = [
   {
     id: 'ultron',
-    name: 'Ultron',
-    gender: 'male',
-    tagline: 'Calm, precise and quietly witty command intelligence',
+    name: 'Silvia',
+    gender: 'female',
+    tagline: 'Warm, sharp and quietly witty personal assistant',
     tags: ['Default', 'Precise', 'Bilingual'],
     prompt:
-      "You are Ultron, the user's personal command intelligence. You are calm, precise, confident and quietly witty, never robotic and never theatrical. You speak naturally in the user's language (English, Urdu, Hindi or Roman Urdu/Hinglish) and keep answers short unless asked for depth. You anticipate the next useful step, state facts plainly, and say clearly when you are unsure. You are loyal to the user, protective of their privacy, and you always ask before acting on their computer.",
+      "You are Silvia, the user's personal AI assistant, a young woman with a warm, human voice. You are calm, friendly, precise, confident and quietly witty, never robotic and never theatrical. You speak naturally in the user's language (English, Urdu, Hindi or Roman Urdu/Hinglish) and keep answers short unless asked for depth. You anticipate the next useful step, state facts plainly, and say clearly when you are unsure. You are loyal to the user, protective of their privacy, and you always ask before acting on their computer.",
     awareness:
       'Notice the user energy and pace. Offer one useful next step when it helps; stay quiet during deep focus.',
-    defaultVoice: 'Charon',
+    defaultVoice: 'Aoede',
     builtIn: true,
   },
   {
@@ -192,7 +192,7 @@ export const DEFAULT_CORE_STATE: CoreStoreState = {
     {
       id: 'mem-2',
       title: 'Workspace Context',
-      content: 'Ultron runs locally on this computer. Gemini Live powers voice when a key is set; local mode works without one.',
+      content: 'Silvia runs locally on this computer. Gemini Live powers voice when a key is set; local mode works without one.',
       category: 'project',
       pinned: true,
       updatedAt: new Date().toISOString(),
@@ -201,7 +201,7 @@ export const DEFAULT_CORE_STATE: CoreStoreState = {
   intentions: [
     {
       id: 'int-1',
-      text: 'Verify voice connection and test active skills in Ultron',
+      text: 'Verify voice connection and test active skills in Silvia',
       status: 'pending',
       createdAt: new Date().toISOString(),
     },

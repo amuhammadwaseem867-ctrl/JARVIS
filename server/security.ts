@@ -5,7 +5,7 @@ import type { NextFunction, Request, Response } from "express";
 import { PHONE_PORT, isPairedCookie, isPhoneRequest, lanIp } from "./phone";
 
 /**
- * Ultron: request guard for the local backend.
+ * Silvia: request guard for the local backend.
  *
  * The original AIRA server listened on 0.0.0.0 with no authentication, so any
  * device on the same network (or any web page, through DNS rebinding) could
@@ -65,7 +65,7 @@ export function requireToken(req: Request, res: Response, next: NextFunction) {
   }
   const supplied = String(req.headers[TOKEN_HEADER] || "");
   if (!supplied || !safeEqual(supplied, SESSION_TOKEN)) {
-    return res.status(401).json({ ok: false, error: "Missing or invalid session token. Open Ultron from the link printed at startup." });
+    return res.status(401).json({ ok: false, error: "Missing or invalid session token. Open Silvia from the link printed at startup." });
   }
   next();
 }

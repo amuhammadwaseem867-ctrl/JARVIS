@@ -206,7 +206,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
-/* Ultron character orb */
+/* Silvia character orb */
 @keyframes ultron-spin { to { transform: rotate(360deg); } }
 @keyframes ultron-spin-back { to { transform: rotate(-360deg); } }
 @keyframes ultron-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }

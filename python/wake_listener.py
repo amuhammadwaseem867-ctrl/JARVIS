@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Ultron wake listener: say "Ultron" and the assistant switches itself on.
+Silvia wake listener: say "Silvia" and the assistant switches itself on.
 
-Runs in the background (started by the Ultron backend when ULTRON_WAKE=1),
+Runs in the background (started by the Silvia backend when ULTRON_WAKE=1),
 listens to the microphone, transcribes speech on this computer with
 faster-whisper (no internet, no API key), and when it hears the wake word it
-tells the backend, which starts Ultron in every open window.
+tells the backend, which starts Silvia in every open window.
 
 Optional install:  python3 -m pip install faster-whisper sounddevice numpy
 
-"Ultron, open WhatsApp"   -> wakes Ultron and sends "open WhatsApp"
-"Hey Ultron"              -> wakes Ultron, waits for you to speak
+"Silvia, open WhatsApp"   -> wakes Silvia and sends "open WhatsApp"
+"Hey Silvia"              -> wakes Silvia, waits for you to speak
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ import sys
 import time
 import urllib.request
 
-ALIASES = {"ultron", "ultran", "altron", "ultra-on", "ultraon", "ultrun", "aultron", "wakeup", "wake-up"}
-SPLIT_ALIASES = [("ultra", "on"), ("all", "tron"), ("ul", "tron"), ("ult", "ron"), ("wake", "up")]
-# "Ultron, wake up" only wakes it; the words "wake up" are not sent as a command.
+ALIASES = {"silvia", "sylvia", "silviya", "salvia", "selvia", "silva", "ultron", "ultran", "altron", "ultra-on", "ultraon", "ultrun", "aultron", "wakeup", "wake-up"}
+SPLIT_ALIASES = [("sil", "via"), ("syl", "via"), ("ultra", "on"), ("all", "tron"), ("ul", "tron"), ("ult", "ron"), ("wake", "up")]
+# "Silvia, wake up" only wakes it; the words "wake up" are not sent as a command.
 WAKE_UP_ONLY = re.compile(r"^(?:please\s+)?wake[\s-]?up(?:\s+please)?[\s.!]*$", re.I)
 LEAD_INS = {"hey", "hi", "ok", "okay", "yo", "hello", "oi", "suno", "sun"}
 WORD = re.compile(r"[\w']+")
@@ -77,7 +77,7 @@ def notify(command: str) -> None:
     try:
         urllib.request.urlopen(req, timeout=5).read()
     except Exception as exc:  # backend restarting; keep listening
-        print(f"wake: could not reach Ultron ({exc})", file=sys.stderr)
+        print(f"wake: could not reach Silvia ({exc})", file=sys.stderr)
 
 
 def listen() -> None:
@@ -96,7 +96,7 @@ def listen() -> None:
     print(f"wake: loading speech model '{model_name}' (first run downloads it once)", file=sys.stderr)
     model = WhisperModel(model_name, device="cpu", compute_type="int8")
     threshold = float(os.environ.get("ULTRON_WAKE_SENSITIVITY", "0.012"))
-    print("wake: listening for \"Ultron\"", file=sys.stderr)
+    print("wake: listening for \"Silvia\"", file=sys.stderr)
 
     speech: list = []
     silent_blocks = 0
@@ -118,7 +118,7 @@ def listen() -> None:
                 if len(audio) < rate * 0.4:
                     continue
                 segments, _info = model.transcribe(audio, beam_size=1, vad_filter=True,
-                                                   initial_prompt="Ultron, wake up.")
+                                                   initial_prompt="Silvia, wake up.")
                 text = " ".join(s.text for s in segments).strip()
                 command = match_wake(text) if text else None
                 if command is not None:

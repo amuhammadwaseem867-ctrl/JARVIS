@@ -30,7 +30,7 @@ export function PhoneConnect() {
       else setPair(p);
       setDevices(d?.devices || []);
     } catch {
-      setError('Could not reach Ultron.');
+      setError('Could not reach Silvia.');
     }
   }, []);
 

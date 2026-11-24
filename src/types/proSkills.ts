@@ -1,5 +1,5 @@
 /**
- * Built-in professional skills. They are added once to every Ultron install
+ * Built-in professional skills. They are added once to every Silvia install
  * (new and existing); after that the owner can edit, switch off or delete
  * them in Skills like any other skill.
  *
@@ -220,11 +220,11 @@ Daily routine the user can ask for ("client hunting karo"): find 10 new leads, s
 5. Five minutes before: open the meeting link with openWebsite (or the Zoom or Teams app with openApplication) when the user asks, and set a notification with controlSystem notify.
 
 ## During the meeting ("notes lo" or "meeting mode")
-- Listen quietly. Do not speak unless the user says "Ultron" or asks you something directly. Answers during a meeting are one or two sentences.
+- Listen quietly. Do not speak unless the user says "Silvia" or asks you something directly. Answers during a meeting are one or two sentences.
 - Remind the user once to tell the other people that notes are being taken; recording or noting a call without consent is illegal in many places.
 - Keep running notes: topics, decisions, numbers (prices, dates, quantities), objections, questions left open, and who promised what.
 - If the user asks "abhi tak kya hua?", give a 3 line recap.
-- Ultron only hears the computer's microphone and speakers; for online calls keep the call audio on speakers, or use the platform's own transcript and paste it in.
+- Silvia only hears the computer's microphone and speakers; for online calls keep the call audio on speakers, or use the platform's own transcript and paste it in.
 
 ## After the meeting ("meeting khatam, summary do")
 1. Summary file meetings/<yyyy-mm-dd>-<name>/summary.md with:
@@ -242,7 +242,7 @@ Daily routine the user can ask for ("client hunting karo"): find 10 new leads, s
 - Meeting types: sales discovery (pain, budget, decision maker, timeline), client project kickoff (scope, deliverables, approvals, communication channel), interview (structured questions, scorecard 1 to 5 per skill), team standup (yesterday, today, blockers).
 - Weekly review: read all summaries of the week, list open action items by owner and overdue ones first.
 - Negotiation support: before the call, set the walk away price and 2 trade offs; during the call, quietly flag when a concession is asked for without something in return.
-- Privacy: meeting files stay on this computer in the Ultron workspace; never share them anywhere without the user asking.`,
+- Privacy: meeting files stay on this computer in the Silvia workspace; never share them anywhere without the user asking.`,
   },
   {
     name: "youtube-automation",

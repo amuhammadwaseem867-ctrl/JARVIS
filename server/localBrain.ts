@@ -1,11 +1,11 @@
 /**
- * Ultron local mode: works without any API key.
+ * Silvia local mode: works without any API key.
  *
  * 1. Common commands (time, date, open an app, volume, battery, disk...) are
  *    understood by a built-in parser, in English and Roman Urdu/Hindi.
  * 2. Everything else goes to a local model through Ollama, if it is running
  *    on this computer. Nothing leaves the machine.
- * 3. Without Ollama, Ultron explains what it can do and how to enable chat.
+ * 3. Without Ollama, Silvia explains what it can do and how to enable chat.
  *
  * The local model only produces text and is never given tools, so a prompt
  * injection cannot make it act. Parsed commands still pass through the normal

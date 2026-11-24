@@ -1,5 +1,5 @@
 /**
- * Ultron: session bootstrap.
+ * Silvia: session bootstrap.
  *
  * The backend prints (or Electron loads) a link with #token=... in the hash.
  * The hash never reaches the server logs or Referer headers. We move the token

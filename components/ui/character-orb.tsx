@@ -1,20 +1,21 @@
 import { cn } from "@/lib/utils";
+import { TalkingFace } from "@/components/ui/talking-face";
 
 interface CharacterOrbProps {
   className?: string;
   isActive?: boolean;
-  /** 0..1 live voice level (mic or Ultron's voice). Drives the glow and rings. */
+  /** 0..1 live voice level (mic or Silvia's voice). Drives the glow and rings. */
   audioLevel?: number;
-  /** Portrait to show; defaults to the built-in Ultron character. */
+  /** Portrait to show; defaults to the built-in Silvia character. */
   src?: string;
 }
 
 /**
- * Ultron's character: a round portrait with two orbiting rings, a halo that
+ * Silvia's character: a round portrait with two orbiting rings, a halo that
  * follows the voice level, slow breathing and a scan line. Pure CSS, so it is
  * light on phones; all motion stops under "reduce motion".
  */
-export function CharacterOrb({ className, isActive = false, audioLevel = 0, src = "/character/ultron.jpg" }: CharacterOrbProps) {
+export function CharacterOrb({ className, isActive = false, audioLevel = 0, src = "/character/silvia.jpg" }: CharacterOrbProps) {
   const level = Math.max(0, Math.min(1, audioLevel * 6));
   return (
     <div className={cn("ultron-orb relative aspect-square h-full max-h-full max-w-full", isActive && "is-live", className)}>
@@ -33,7 +34,7 @@ export function CharacterOrb({ className, isActive = false, audioLevel = 0, src 
         <path d="M432 220a212 212 0 0 1-60 148" fill="none" stroke="#7ff4fa" strokeWidth="2" strokeLinecap="round" />
       </svg>
       <div className="ultron-orb-face absolute inset-[12%] overflow-hidden rounded-full shadow-[0_0_0_1px_rgba(34,211,238,.5),0_24px_70px_rgba(34,211,238,.18)]">
-        <img src={src} alt="Ultron" className="block h-full w-full object-cover" draggable={false} />
+        <TalkingFace src={src} isActive={isActive} className="block h-full w-full object-cover" />
         <div className="ultron-orb-scan pointer-events-none absolute inset-0" aria-hidden="true" />
       </div>
     </div>

@@ -1,11 +1,11 @@
-# Ultron: security review and changes
+# Silvia: security review and changes
 
 Reviewed: `arvindcodex/Maya` (app name "AIRA AI Assistant"), commit `59518f6`, 12 Nov 2026.
 The original code was read in full before anything was run. It was never executed with real credentials.
 
 ## Findings in the original
 
-| # | Severity | Finding | Fix in Ultron |
+| # | Severity | Finding | Fix in Silvia |
 |---|----------|---------|--------------------|
 | 1 | Critical | **The voice AI could run any shell command.** `controlSystem` exposed `run_shell` (`subprocess.run(shell=True)`) directly to Gemini. Anything the model reads (a web page, news item, file, screen text) could inject "run this command". | `run_shell` removed. Replaced by 7 read-only, argument-free presets run without a shell. |
 | 2 | Critical | **Backend open to the whole network, no auth.** Express listened on `0.0.0.0:3000` with no token. Anyone on the same Wi-Fi could call `/api/system/python` and run commands. | Binds to `127.0.0.1`. Every `/api` call needs a random per-launch token, a local `Host` header and no foreign `Origin`. |
@@ -16,7 +16,7 @@ The original code was read in full before anything was run. It was never execute
 | 7 | High | **Screen agent followed whatever was on screen.** Screenshots went to the planner with no instruction hierarchy, and it could open any app or link. | Goal approved up front, screen text marked untrusted, action allowlist, no links, `ask_user` escape, Stop endpoint, one task at a time. |
 | 8 | High | **Files: full home folder access**, including `~/.ssh`, keychains and `.env` files, with write access. | Confined to `~/UltronWorkspace` (configurable, never home itself). Symlink escape and sensitive names blocked. Reads and writes need approval. |
 | 9 | High | **`.env` packaged inside the app** (`extraResources`), so a built `.app` shipped your API key to anyone you gave it to. | Removed. Packaged builds read `.env` only from the per-user data folder. |
-| 10 | Medium | **Electron hardening gaps:** no sandbox, `webviewTag` with no attach checks, any URL passed to `shell.openExternal`, IPC accepted from any frame, mic/camera auto-granted to any page, `sh -c` for install. | `sandbox: true`, navigation lock, webview allowlist with preload stripped, http(s)-only external links, IPC sender checks, permissions only for the Ultron window, `fs.cp` instead of shell. |
+| 10 | Medium | **Electron hardening gaps:** no sandbox, `webviewTag` with no attach checks, any URL passed to `shell.openExternal`, IPC accepted from any frame, mic/camera auto-granted to any page, `sh -c` for install. | `sandbox: true`, navigation lock, webview allowlist with preload stripped, http(s)-only external links, IPC sender checks, permissions only for the Silvia window, `fs.cp` instead of shell. |
 | 11 | Medium | **Prompt injection through tools.** News, files and tool results were fed to the model as trusted text. | Security rules appended to every persona prompt; tool results labelled as untrusted data. |
 | 12 | Medium | **`openWebsite` accepted any URL** (including `javascript:`), opened via `window.open` with opener access. | http(s) only, credentials in URLs rejected, `noopener,noreferrer`, approval required. |
 | 13 | Medium | **WhatsApp could message the wrong person.** Contact lookup used `includes`, so "Ali" matched "Alisha". No confirmation before sending. | Exact match only, ambiguity returns an error, every send needs approval and is audited. |
@@ -38,7 +38,7 @@ At the owner's request, `ULTRON_FULL_CONTROL=1` re-enables shell commands, code-
 
 * Approving an action means it runs. Read the dialog; it shows exactly what will be typed, clicked or sent.
 * Screenshots, camera frames and voice are sent to Google Gemini. That is how the product works.
-* macOS Accessibility and Screen Recording permissions are powerful. Grant them only to the Ultron app.
+* macOS Accessibility and Screen Recording permissions are powerful. Grant them only to the Silvia app.
 * Dev-only build tools (`electron-builder`, `tsx`) still carry 7 moderate/low advisories that do not ship in the app.
 * The ephemeral-token voice connection, Electron shell and macOS automation could not be exercised in the review environment (Linux, no Gemini key). Server, policy, agent and UI flows are covered by automated tests.
 

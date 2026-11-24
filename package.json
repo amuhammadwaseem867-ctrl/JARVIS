@@ -20,7 +20,7 @@
   },
   "build": {
     "appId": "com.ultron.assistant",
-    "productName": "Ultron",
+    "productName": "Silvia",
     "directories": {
       "output": "release"
     },
@@ -44,7 +44,7 @@
       ],
       "category": "public.app-category.productivity",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Ultron needs microphone access for live voice conversation.",
+        "NSMicrophoneUsageDescription": "Silvia needs microphone access for live voice conversation.",
         "NSCameraUsageDescription": "Ultron needs camera access for emotion awareness and visual understanding.",
         "NSAppleEventsUsageDescription": "Ultron needs Automation access to control macOS applications and system workflows.",
         "NSScreenCaptureUsageDescription": "Ultron needs Screen Recording access so its vision agent can read your screen and assist you."

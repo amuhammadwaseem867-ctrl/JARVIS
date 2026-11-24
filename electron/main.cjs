@@ -12,7 +12,7 @@ const {
   globalShortcut,
 } = require('electron');
 
-// Ultron starts itself and wakes on "Ultron": allow audio without a click first.
+// Silvia starts itself and wakes on "Silvia": allow audio without a click first.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 let tray = null;
 let quitting = false;
@@ -24,7 +24,7 @@ const net = require('net');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-// Ultron: one random token per launch, shared only with our own window.
+// Silvia: one random token per launch, shared only with our own window.
 const SESSION_TOKEN = crypto.randomBytes(32).toString('base64url');
 // Sites the in-app web windows may load. Everything else opens in the default browser.
 const WEB_WINDOW_HOSTS = new Set(['www.instagram.com', 'instagram.com', 'web.whatsapp.com', 'www.youtube.com', 'x.com']);
@@ -50,7 +50,7 @@ function isHttpUrl(raw) {
   }
 }
 
-/** IPC calls are only accepted from the main Ultron window. */
+/** IPC calls are only accepted from the main Silvia window. */
 function fromApp(event) {
   const url = event?.senderFrame?.url || '';
   return Boolean(mainWindow) && event.sender === mainWindow.webContents && isAppUrl(url);
@@ -232,7 +232,7 @@ async function ensureBackendRunning() {
     }
   }
 
-  // The desktop app listens for "Ultron" by default (ULTRON_WAKE=0 in .env turns it off).
+  // The desktop app listens for "Silvia" by default (ULTRON_WAKE=0 in .env turns it off).
   if (process.env.ULTRON_WAKE === undefined) process.env.ULTRON_WAKE = '1';
 
   if (fs.existsSync(distServer)) {
@@ -250,7 +250,7 @@ function createWindow(port) {
     minWidth: 1100,
     minHeight: 720,
     backgroundColor: '#05070a',
-    title: 'Ultron',
+    title: 'Silvia',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -293,7 +293,7 @@ function createWindow(port) {
     }
   });
 
-  // Closing the window hides Ultron; it keeps listening. Quit from the tray.
+  // Closing the window hides Silvia; it keeps listening. Quit from the tray.
   mainWindow.on('close', (event) => {
     if (!quitting) {
       event.preventDefault();
@@ -323,7 +323,7 @@ async function wake(source) {
   } catch {}
 }
 
-/** Launch at login (hidden), tray menu and a global shortcut to wake Ultron. */
+/** Launch at login (hidden), tray menu and a global shortcut to wake Silvia. */
 function setupAlwaysOn() {
   if (app.isPackaged && process.env.ULTRON_AUTOSTART !== '0') {
     app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true, args: ['--hidden'] });
@@ -334,11 +334,11 @@ function setupAlwaysOn() {
     );
     icon.setTemplateImage(true); // black ring; macOS tints it for light and dark menu bars
     tray = new Tray(icon);
-    tray.setToolTip('Ultron');
+    tray.setToolTip('Silvia');
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: 'Show Ultron', click: showWindow },
-        { label: 'Wake Ultron (Cmd/Ctrl+Shift+U)', click: () => wake('tray') },
+        { label: 'Show Silvia', click: showWindow },
+        { label: 'Wake Silvia (Cmd/Ctrl+Shift+U)', click: () => wake('tray') },
         { type: 'separator' },
         {
           label: 'Start at login',
@@ -347,7 +347,7 @@ function setupAlwaysOn() {
           click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, openAsHidden: true, args: ['--hidden'] }),
         },
         { type: 'separator' },
-        { label: 'Quit Ultron', click: () => { quitting = true; app.quit(); } },
+        { label: 'Quit Silvia', click: () => { quitting = true; app.quit(); } },
       ])
     );
     tray.on('click', showWindow);
@@ -378,7 +378,7 @@ function registerDesktopIpc() {
       width: 1120,
       height: 760,
       backgroundColor: '#0b141a',
-      title: String(title || 'Ultron Portal').slice(0, 80),
+      title: String(title || 'Silvia Portal').slice(0, 80),
       webPreferences: {
         partition: partition || 'persist:ultron-web',
         contextIsolation: true,
@@ -469,7 +469,7 @@ function registerDesktopIpc() {
 
 app.whenReady().then(async () => {
   // Auto-grant mic & camera permissions inside AIRA desktop app
-  // Camera, mic and notifications only for the Ultron window itself, never for loaded websites.
+  // Camera, mic and notifications only for the Silvia window itself, never for loaded websites.
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const requester = details?.requestingUrl || webContents.getURL();
     const allowed = ['media', 'audioCapture', 'videoCapture', 'notifications'].includes(permission);
@@ -509,5 +509,5 @@ app.on('before-quit', () => {
   quitting = true;
 });
 app.on('will-quit', () => globalShortcut.unregisterAll());
-// Ultron stays running in the tray when its window is closed.
+// Silvia stays running in the tray when its window is closed.
 app.on('window-all-closed', () => {});

@@ -2,7 +2,7 @@ import React from 'react';
 import { ShieldAlert, ShieldCheck } from 'lucide-react';
 
 /**
- * Ultron: human approval gate.
+ * Silvia: human approval gate.
  *
  * Every risky action the AI asks for (typing, clicking, reading the clipboard,
  * screenshots, file writes, links, WhatsApp messages, screen control) shows
@@ -58,25 +58,25 @@ export function describeSystemAction(a: Record<string, any>): Omit<ApprovalReque
   };
   switch (a.action) {
     case 'type_text':
-      return { title: 'Type on your keyboard', detail: `Ultron wants to type: "${t(a.text, 300)}"${a.pressEnter ? ' and press Enter' : ''}.`, risk: 'high' };
+      return { title: 'Type on your keyboard', detail: `Silvia wants to type: "${t(a.text, 300)}"${a.pressEnter ? ' and press Enter' : ''}.`, risk: 'high' };
     case 'hotkey':
-      return { title: 'Press a shortcut', detail: `Ultron wants to press ${t(a.keys, 40)}.`, risk: 'medium' };
+      return { title: 'Press a shortcut', detail: `Silvia wants to press ${t(a.keys, 40)}.`, risk: 'medium' };
     case 'mouse_click':
-      return { title: 'Click on your screen', detail: `Ultron wants to ${a.button === 'right' ? 'right-click' : 'click'} at (${Math.round(a.x)}, ${Math.round(a.y)}).`, risk: 'medium' };
+      return { title: 'Click on your screen', detail: `Silvia wants to ${a.button === 'right' ? 'right-click' : 'click'} at (${Math.round(a.x)}, ${Math.round(a.y)}).`, risk: 'medium' };
     case 'screenshot':
-      return { title: 'Capture your screen', detail: 'Ultron wants a screenshot. It will be sent to Google Gemini for analysis.', risk: 'medium' };
+      return { title: 'Capture your screen', detail: 'Silvia wants a screenshot. It will be sent to Google Gemini for analysis.', risk: 'medium' };
     case 'clipboard_get':
-      return { title: 'Read your clipboard', detail: 'Ultron wants to read your clipboard. It may contain passwords or private text.', risk: 'high' };
+      return { title: 'Read your clipboard', detail: 'Silvia wants to read your clipboard. It may contain passwords or private text.', risk: 'high' };
     case 'clipboard_set':
-      return { title: 'Replace your clipboard', detail: `Ultron wants to copy: "${t(a.text)}".`, risk: 'medium' };
+      return { title: 'Replace your clipboard', detail: `Silvia wants to copy: "${t(a.text)}".`, risk: 'medium' };
     case 'fs_op':
-      return { title: a.operation === 'read' ? 'Read a file' : 'Change a file', detail: `${t(a.operation, 10)} "${t(a.path, 200)}" in your Ultron workspace folder.`, risk: a.operation === 'read' ? 'medium' : 'high' };
+      return { title: a.operation === 'read' ? 'Read a file' : 'Change a file', detail: `${t(a.operation, 10)} "${t(a.path, 200)}" in your Silvia workspace folder.`, risk: a.operation === 'read' ? 'medium' : 'high' };
     case 'whatsapp_send':
-      return { title: 'Send a WhatsApp message', detail: a.audio ? `Ultron wants to send a voice note to ${t(a.contact, 80)}.` : `Ultron wants to send to ${t(a.contact, 80)}: "${t(a.text, 400)}"`, risk: 'high' };
+      return { title: 'Send a WhatsApp message', detail: a.audio ? `Silvia wants to send a voice note to ${t(a.contact, 80)}.` : `Silvia wants to send to ${t(a.contact, 80)}: "${t(a.text, 400)}"`, risk: 'high' };
     case 'screen_task':
-      return { title: 'Let Ultron control your screen', detail: `Goal: "${t(a.goal, 300)}". Ultron will take screenshots, click and type for up to ${Number(a.maxSteps) || 5} steps. You can stop it at any time.`, risk: 'high' };
+      return { title: 'Let Silvia control your screen', detail: `Goal: "${t(a.goal, 300)}". Silvia will take screenshots, click and type for up to ${Number(a.maxSteps) || 5} steps. You can stop it at any time.`, risk: 'high' };
     case 'open_app':
-      return { title: 'Open a link', detail: `Ultron wants to open ${t(a.target, 300)}. Check the address before approving.`, risk: 'medium' };
+      return { title: 'Open a link', detail: `Silvia wants to open ${t(a.target, 300)}. Check the address before approving.`, risk: 'medium' };
     default:
       return { title: 'Allow system action', detail: `Action: ${t(a.action, 40)}`, risk: 'medium' };
   }

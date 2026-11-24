@@ -1,5 +1,6 @@
 import type { AIRALiveCallbacks } from "./geminiLiveService";
 import { describeSystemAction, postWithApproval } from "../security/approval";
+import { setSyntheticVoice } from "./voiceMeter";
 
 /** What App.tsx needs from any assistant engine (Gemini Live or local). */
 export interface AssistantEngine {
@@ -14,7 +15,7 @@ export interface AssistantEngine {
 type Turn = { role: "user" | "assistant"; content: string };
 
 /**
- * Ultron local mode: no API key needed.
+ * Silvia local mode: no API key needed.
  * Speech in: the browser's speech recognition, where available.
  * Speech out: the system voices (speechSynthesis), fully offline.
  * Brain: built-in commands, plus a local Ollama model when installed.
@@ -84,7 +85,7 @@ export class LocalAssistantService implements AssistantEngine {
     const clean = text.trim();
     if (!clean || !this.active) return;
     if (fromVoice) {
-      // Ignore what the mic hears while Ultron is answering or talking (its own
+      // Ignore what the mic hears while Silvia is answering or talking (its own
       // voice), and the duplicate final results some phone browsers send.
       if (this.busy || this.speaking) return;
       const key = clean.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, "");
@@ -196,12 +197,14 @@ export class LocalAssistantService implements AssistantEngine {
 
   private startLevel() {
     this.stopLevel();
+    setSyntheticVoice(true);
     this.levelTimer = window.setInterval(() => this.callbacks.onAudioLevelChange(0.25 + Math.random() * 0.5), 90);
   }
 
   private stopLevel() {
     if (this.levelTimer !== null) window.clearInterval(this.levelTimer);
     this.levelTimer = null;
+    setSyntheticVoice(false);
     this.callbacks.onAudioLevelChange(0);
   }
 

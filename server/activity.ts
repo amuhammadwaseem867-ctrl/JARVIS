@@ -1,7 +1,7 @@
 import type { Response } from "express";
 
 /**
- * Ultron live activity: one event stream shared by every open Ultron window
+ * Silvia live activity: one event stream shared by every open Silvia window
  * (the computer and paired phones), so both show the same conversation and
  * actions, and a spoken command is only acted on once.
  */

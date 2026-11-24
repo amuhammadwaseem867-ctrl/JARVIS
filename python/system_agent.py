@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ultron: hardened system control agent for macOS and Windows.
+Silvia: hardened system control agent for macOS and Windows.
 
 Derived from AIRA's python/system_agent.py (Copyright Arvind Kumar, Apache 2.0).
 Changes: removed arbitrary shell execution, replaced string-built AppleScript
@@ -447,7 +447,7 @@ def handle_notify(payload):
     if IS_WIN:
         return win_notify(payload)
     require_mac("Notifications")
-    title = clean_text(payload.get("title") or "Ultron", limit=80)
+    title = clean_text(payload.get("title") or "Silvia", limit=80)
     message = clean_text(payload.get("message"), limit=300)
     res = osascript(["on run argv", "display notification (item 2 of argv) with title (item 1 of argv)", "end run"], [title, message])
     return {"ok": res.returncode == 0}
@@ -472,10 +472,10 @@ def resolve_in_workspace(raw):
     root = workspace_root()
     rel = str(raw or "").strip()
     if rel.startswith("~"):
-        raise AgentError("Use a path relative to the Ultron workspace folder.")
+        raise AgentError("Use a path relative to the Silvia workspace folder.")
     candidate = (root / rel).resolve() if rel else root
     if candidate != root and root not in candidate.parents:
-        raise AgentError("Path must stay inside the Ultron workspace folder.")
+        raise AgentError("Path must stay inside the Silvia workspace folder.")
     if not FULL_CONTROL and any(part in SENSITIVE_PARTS for part in candidate.relative_to(root).parts):
         raise AgentError("That path is blocked.")
     return root, candidate
@@ -948,7 +948,7 @@ def win_clipboard_set(payload):
 
 
 def win_notify(payload):
-    title = clean_text(payload.get("title") or "Ultron", limit=80)
+    title = clean_text(payload.get("title") or "Silvia", limit=80)
     message = clean_text(payload.get("message"), limit=300)
     res = ps("Add-Type -AssemblyName System.Windows.Forms;"
              "$n=New-Object System.Windows.Forms.NotifyIcon; $n.Icon=[System.Drawing.SystemIcons]::Information;"
