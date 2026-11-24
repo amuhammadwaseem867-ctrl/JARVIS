@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { HologramCore } from '@/components/ui/hologram-core';
-import { AIRALiveService, type AIRALiveCallbacks } from './services/geminiLiveService';
+import { AIRALiveService, primeAudioForSession, type AIRALiveCallbacks } from './services/geminiLiveService';
 import { LocalAssistantService, type AssistantEngine } from './services/localAssistantService';
 import { WakeWatcher } from './services/wakeWord';
 
@@ -1793,6 +1793,7 @@ export default function App() {
       setAiraEmotion('READY');
       setUserEmotion('CHILL');
     } else {
+      primeAudioForSession(); // must run inside the tap, before any await
       await startAiraSession();
     }
   };
@@ -1805,6 +1806,7 @@ export default function App() {
       airaRef.current?.terminate();
       setIsActive(false);
       setStatus('READY');
+      primeAudioForSession();
       await startAiraSession(nextVoice);
     }
   };
