@@ -34,7 +34,7 @@ import {
   FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { HologramCore } from '@/components/ui/hologram-core';
+import { ModuleTile, Reactor, TopHud } from '@/components/ui/command-deck';
 import { AIRALiveService, primeAudioForSession, type AIRALiveCallbacks } from './services/geminiLiveService';
 import { LocalAssistantService, type AssistantEngine } from './services/localAssistantService';
 import { CLIENT_ID, WakeWatcher } from './services/wakeWord';
@@ -380,243 +380,74 @@ const NeuralCoreDeck = ({
     return 'Ultron is listening';
   }, [isActive, status, airaEmotion]);
 
+  const tiles: Record<CoreNodeConfig['id'], { label: string; hint: string; color: string }> = {
+    memory: { label: 'Memory', hint: 'What Ultron remembers about you', color: '#22d3ee' },
+    skills: { label: 'Skills', hint: 'Leads, meetings, YouTube and more', color: '#34d399' },
+    character: { label: 'Character', hint: 'Voice and personality', color: '#f472b6' },
+    setting: { label: 'Settings', hint: 'Keys, phone link, full control', color: '#a5b4fc' },
+  };
+  const tile = (node: CoreNodeConfig, i: number) => (
+    <React.Fragment key={node.id}>
+    <ModuleTile
+      index={i + 1}
+      label={tiles[node.id].label}
+      hint={tiles[node.id].hint}
+      color={tiles[node.id].color}
+      icon={node.icon as any}
+      onClick={() => {
+        setSelectedNode(node.id);
+        onOpenModal(node.id);
+      }}
+    />
+    </React.Fragment>
+  );
+  const busy = status === 'INITIALIZING...' || status === 'CONNECTING...';
+
   return (
-    <div className="w-full h-full flex flex-col md:flex-row items-stretch relative select-none">
-      {/* Left 4 Chamfered Module Tabs */}
-      <div className="order-2 md:order-none mt-3 md:mt-0 w-full md:w-[190px] lg:w-[205px] xl:w-[220px] shrink-0 grid grid-cols-2 gap-2 md:flex md:flex-col md:justify-between md:gap-0 md:py-1 z-10">
-        {CORE_NODES.map((node) => {
-          const Icon = node.icon;
-          const isSelected = selectedNode === node.id;
-          return (
-            <button
-              key={node.id}
-              type="button"
-              onClick={() => {
-                setSelectedNode(node.id);
-                onOpenModal(node.id);
-              }}
-              className="relative h-[50px] w-full text-left group cursor-pointer transition-transform duration-200 hover:translate-x-0.5"
-              style={{
-                clipPath:
-                  'polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px)',
-                background: isSelected ? node.lineColor : node.borderColor,
-              }}
-            >
-              <div
-                className="absolute inset-[1px] flex items-center px-2.5"
-                style={{
-                  clipPath:
-                    'polygon(10.5px 0, 100% 0, 100% calc(100% - 10.5px), calc(100% - 10.5px) 100%, 0 100%, 0 10.5px)',
-                  background: node.surfaceGradient,
-                }}
-              >
-                <div
-                  className={`w-8 h-8 rounded-[6px] border flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${node.iconBoxClass}`}
-                >
-                  <Icon className={`w-4 h-4 ${node.iconClass}`} />
-                </div>
-                <span className="ml-3 text-[12px] font-semibold tracking-[0.14em] text-slate-100 uppercase truncate">
-                  {node.label}
-                </span>
-                <span
-                  className="ml-auto mr-1 w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{
-                    backgroundColor: node.dotColor,
-                    boxShadow: `0 0 8px ${node.dotColor}`,
-                  }}
-                />
-              </div>
-            </button>
-          );
-        })}
+    <div className="relative grid w-full h-full grid-cols-2 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(280px,340px)_minmax(0,1fr)] select-none">
+      <div className="order-2 md:order-none col-span-2 md:col-span-1 grid grid-cols-2 gap-3 md:flex md:flex-col">
+        {CORE_NODES.slice(0, 2).map((n, i) => tile(n, i))}
       </div>
 
-      {/* Middle Orthogonal + 45-deg Circuit Trace Lines */}
-      <div className="hidden md:block flex-1 min-w-[90px] relative py-1 pointer-events-none">
-        <div className="relative w-full h-full">
-          <svg
-            className="w-full h-full overflow-visible"
-            viewBox="0 0 200 300"
-            preserveAspectRatio="none"
-          >
-            {CORE_NODES.map((node, idx) => (
-              <g key={node.id}>
-                {/* Soft glow trace */}
-                <path
-                  d={node.pathD}
-                  fill="none"
-                  stroke={node.lineColor}
-                  strokeWidth="4"
-                  strokeOpacity="0.22"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {/* Crisp primary trace */}
-                <motion.path
-                  d={node.pathD}
-                  fill="none"
-                  stroke={node.lineColor}
-                  strokeWidth="1.5"
-                  strokeOpacity="0.85"
-                  vectorEffect="non-scaling-stroke"
-                  initial={{ pathLength: 0.2, opacity: 0.4 }}
-                  animate={{ pathLength: 1, opacity: 0.9 }}
-                  transition={{ duration: 0.9, delay: idx * 0.1, ease: 'easeOut' }}
-                />
-                {/* Animated data pulse */}
-                <path
-                  d={node.pathD}
-                  fill="none"
-                  stroke="#ffffff"
-                  strokeWidth="1.5"
-                  strokeOpacity="0.55"
-                  strokeDasharray="6 34"
-                  vectorEffect="non-scaling-stroke"
-                  className="animate-dash"
-                />
-              </g>
-            ))}
-          </svg>
-
-          {/* Circular junction dots so aspect scaling never stretches them */}
-          {CORE_NODES.map((node) => (
-            <React.Fragment key={`dots-${node.id}`}>
-              <span
-                className="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  left: node.dotPos.x,
-                  top: node.dotPos.y,
-                  backgroundColor: node.dotColor,
-                  boxShadow: `0 0 8px ${node.dotColor}`,
-                }}
-              />
-              <span
-                className="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  left: node.elbow1.x,
-                  top: node.elbow1.y,
-                  backgroundColor: node.dotColor,
-                  boxShadow: `0 0 8px ${node.dotColor}`,
-                }}
-              />
-              <span
-                className="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2 opacity-80"
-                style={{
-                  left: node.elbow2.x,
-                  top: node.elbow2.y,
-                  backgroundColor: node.dotColor,
-                  boxShadow: `0 0 6px ${node.dotColor}`,
-                }}
-              />
-            </React.Fragment>
-          ))}
+      {/* Reactor chamber */}
+      <section aria-label="Ultron voice" className="order-1 md:order-none col-span-2 md:col-span-1 glass-panel hud-corners relative flex flex-col items-center overflow-hidden px-5 pt-3 pb-5">
+        <div className="pointer-events-none absolute inset-0 hud-grid opacity-60" aria-hidden="true" />
+        <div className="relative w-full max-w-[290px] md:max-w-[250px]">
+          <Reactor isActive={isActive} audioLevel={audioLevel} />
         </div>
-      </div>
 
-      {/* Right Column: Octagonal Hologram Chamber */}
-      <div className="order-1 md:order-none w-full md:w-[320px] lg:w-[335px] xl:w-[365px] shrink-0 flex flex-col">
-        {/* Octagonal Chamber */}
-        <div
-          className="relative flex-1 min-h-[300px]"
-          style={{
-            clipPath:
-              'polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px)',
-            background:
-              'linear-gradient(180deg, rgba(34, 211, 238, 0.48) 0%, rgba(20, 95, 125, 0.35) 50%, rgba(34, 211, 238, 0.42) 100%)',
-          }}
-        >
-          <div
-            className="absolute inset-[1px] overflow-hidden flex flex-col justify-end"
-            style={{
-              clipPath:
-                'polygon(17.5px 0, calc(100% - 17.5px) 0, 100% 17.5px, 100% calc(100% - 17.5px), calc(100% - 17.5px) 100%, 17.5px 100%, 0 calc(100% - 17.5px), 0 17.5px)',
-              background:
-                'radial-gradient(circle at 50% 42%, #071928 0%, #040910 65%, #020509 100%)',
-            }}
-          >
-            {/* Subtle square grid inside chamber */}
-            <div
-              className="pointer-events-none absolute inset-0 opacity-30"
-              style={{
-                backgroundImage:
-                  'linear-gradient(to right, rgba(34, 211, 238, 0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(34, 211, 238, 0.12) 1px, transparent 1px)',
-                backgroundSize: '24px 24px',
-              }}
-            />
-
-            {/* Left wall port indicator dot */}
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8] z-20" />
-
-            {/* Hologram Bust */}
-            <div className="absolute inset-x-0 top-1 bottom-[74px] flex items-center justify-center">
-              <HologramCore isActive={isActive} audioLevel={audioLevel} />
-            </div>
-
-            {/* Bottom Status + Hexagonal Action Button + Mic */}
-            <div className="relative z-20 w-full flex flex-col items-center gap-2.5 pb-4 pt-2 bg-gradient-to-t from-[#03070c] via-[#03070c]/85 to-transparent">
-              <div className="flex items-center gap-2 text-[12px] font-medium text-slate-200 tracking-wide">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isActive
-                      ? 'bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse'
-                      : 'bg-cyan-400/90 shadow-[0_0_6px_#22d3ee]'
-                  }`}
-                />
-                <span>{statusLabel}</span>
-              </div>
-
-              <div className="flex items-center justify-center gap-3">
-                {/* Hexagonal Chamfered Connect / Terminate Button */}
-                <button
-                  type="button"
-                  onClick={onToggle}
-                  className="relative w-[176px] h-[36px] cursor-pointer group transition-transform active:scale-[0.98]"
-                  style={{
-                    clipPath:
-                      'polygon(11px 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 11px 100%, 0 50%)',
-                    background: isActive
-                      ? 'rgba(239, 68, 68, 0.72)'
-                      : 'rgba(34, 211, 238, 0.65)',
-                  }}
-                >
-                  <div
-                    className="absolute inset-[1px] flex items-center justify-center transition-colors"
-                    style={{
-                      clipPath:
-                        'polygon(10.5px 0, calc(100% - 10.5px) 0, 100% 50%, calc(100% - 10.5px) 100%, 10.5px 100%, 0 50%)',
-                      background: isActive
-                        ? 'linear-gradient(180deg, rgba(44, 12, 16, 0.95) 0%, rgba(26, 8, 11, 0.98) 100%)'
-                        : 'linear-gradient(180deg, rgba(10, 38, 48, 0.95) 0%, rgba(6, 20, 28, 0.98) 100%)',
-                    }}
-                  >
-                    <span
-                      className={`text-[11px] font-bold tracking-[0.26em] uppercase ${
-                        isActive
-                          ? 'text-red-400 group-hover:text-red-300'
-                          : 'text-cyan-300 group-hover:text-cyan-200'
-                      }`}
-                    >
-                      {isActive ? 'TERMINATE' : 'CONNECT'}
-                    </span>
-                  </div>
-                </button>
-
-                {/* Circular Mic Button */}
-                <button
-                  type="button"
-                  onClick={onToggle}
-                  aria-label={isActive ? 'Mute or disconnect microphone' : 'Activate voice'}
-                  className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
-                    isActive
-                      ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
-                      : 'border-cyan-500/40 bg-cyan-950/35 text-cyan-400 hover:border-cyan-400/70 hover:bg-cyan-500/15'
-                  }`}
-                >
-                  <Mic className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="relative mt-1 flex items-center gap-2 text-[13px] text-white/80" role="status" aria-live="polite">
+          <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-cyan-300 shadow-[0_0_8px_#22d3ee] animate-pulse' : busy ? 'bg-amber-300 animate-pulse' : 'bg-cyan-400/70'}`} />
+          {statusLabel}
         </div>
+
+        <div className="relative mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onToggle}
+            className={`h-11 min-w-[168px] rounded-full px-6 text-[14px] font-semibold tracking-wide transition-all active:scale-[0.98] ${
+              isActive
+                ? 'border border-red-400/50 bg-red-500/10 text-red-200 hover:bg-red-500/20'
+                : 'bg-gradient-to-r from-cyan-300 to-cyan-500 text-[#00161a] shadow-[0_8px_30px_rgba(0,229,242,.35)] hover:shadow-[0_8px_40px_rgba(0,229,242,.5)]'
+            }`}
+          >
+            {isActive ? 'End session' : busy ? 'Connecting…' : 'Connect'}
+          </button>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={isActive ? 'Stop listening' : 'Start talking'}
+            className={`grid h-11 w-11 place-items-center rounded-full border transition-colors ${
+              isActive ? 'border-cyan-300/70 bg-cyan-400/15 text-cyan-200' : 'border-white/15 bg-white/[0.04] text-cyan-300 hover:border-cyan-300/60'
+            }`}
+          >
+            <Mic className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+      </section>
+
+      <div className="order-3 md:order-none col-span-2 md:col-span-1 grid grid-cols-2 gap-3 md:flex md:flex-col">
+        {CORE_NODES.slice(2, 4).map((n, i) => tile(n, i + 2))}
       </div>
     </div>
   );
@@ -1029,11 +860,11 @@ const VisualHub = ({
   onOpenPermissions?: () => void;
 }) => {
   return (
-    <div className="glass-panel flex-1 min-h-[450px] flex flex-col p-5 md:p-10 bg-gradient-to-b from-[#0a0a0a] to-dash-bg relative overflow-hidden group border-white/5 ring-1 ring-white/5">
+    <div className="glass-panel flex-1 min-h-[380px] lg:min-h-0 flex flex-col p-5 md:p-8 bg-gradient-to-b from-[#0a0a0a] to-dash-bg relative overflow-hidden group border-white/5 ring-1 ring-white/5">
       <div className="absolute top-0 right-0 w-[60%] h-[60%] bg-dash-accent/5 blur-[120px] pointer-events-none" />
       <div className="absolute -bottom-20 -left-20 w-[40%] h-[40%] bg-dash-red/5 blur-[100px] pointer-events-none" />
       
-      <div className="flex items-center justify-between mb-10 relative z-10">
+      <div className="flex items-center justify-between mb-6 relative z-10">
         <div className="flex items-center gap-4">
            <div className={`w-3 h-3 rounded-full ${activeVisual ? 'bg-dash-accent animate-pulse shadow-[0_0_10px_#00f2ff]' : 'bg-white/10'}`} />
            <div className="flex flex-col">
@@ -1174,7 +1005,7 @@ const SidebarRight = ({
   };
 
   return (
-    <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 border-l border-white/5 bg-dash-bg flex flex-col h-full relative z-20 transition-all duration-300">
+    <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 border-l border-cyan-300/10 bg-[#060a0f]/75 backdrop-blur-xl flex flex-col h-full relative z-20 transition-all duration-300">
       <div className="flex flex-col h-full ring-1 ring-white/5 shadow-2xl">
         <div className="p-4 pb-3 flex items-center justify-between border-b border-white/5 bg-black/20 backdrop-blur-md">
           <div className="flex flex-col">
@@ -1991,10 +1822,7 @@ export default function App() {
   return (
     <div className="flex flex-col lg:flex-row lg:h-screen w-full bg-dash-bg text-white lg:overflow-hidden overflow-y-auto selection:bg-dash-accent/30 relative">
       {/* Background Decorative Elements */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-30">
-         <div className="absolute top-[10%] left-[-5%] w-[40%] h-[40%] rounded-full blur-[120px] bg-dash-accent/10 sm:block hidden" />
-         <div className="absolute bottom-[20%] right-[-5%] w-[35%] h-[35%] rounded-full blur-[100px] bg-dash-red/5 sm:block hidden" />
-      </div>
+      <div className="ultron-backdrop fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true" />
 
       {/* Sidebar Left - Hidden on small mobile or shown differently */}
       <div className="hidden xl:block">
@@ -2011,8 +1839,12 @@ export default function App() {
 
       {/* Center Content */}
       <div className="flex-1 min-w-0 flex flex-col gap-4 p-4 min-h-0 relative z-10">
+        <TopHud
+          isActive={isActive}
+          statusText={status === 'LOCAL MODE' ? 'Local mode, no API key needed.' : isActive ? 'Listening and ready to act.' : 'Say "Ultron" or press Connect.'}
+        />
         {/* Top Section */}
-        <div className="flex flex-col md:flex-row gap-4 h-auto lg:h-[350px]">
+        <div className="flex flex-col md:flex-row gap-4 h-auto lg:h-[372px] shrink-0">
           <NeuralCoreDeck
             onOpenModal={(nodeId) => {
               if (nodeId === 'memory') setIsMemoryOpen(true);
