@@ -204,3 +204,18 @@ test("phone can install the app before pairing, and the CA really signs the phon
   });
   assert.equal(trusted, 200);
 });
+
+test("wake word preference: remembered per device, off switch is kept", async () => {
+  const store = new Map<string, string>();
+  (globalThis as any).localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+  };
+  const { loadWakePref, saveWakePref, IS_PHONE } = await import("../src/services/wakeWord");
+  assert.equal(loadWakePref(), !IS_PHONE); // default: on for computers, off for phones
+  saveWakePref(false);
+  assert.equal(loadWakePref(), false);
+  saveWakePref(true);
+  assert.equal(loadWakePref(), true);
+  delete (globalThis as any).localStorage;
+});

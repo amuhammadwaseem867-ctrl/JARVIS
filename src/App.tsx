@@ -37,7 +37,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ModuleTile, Reactor, TopHud } from '@/components/ui/command-deck';
 import { AIRALiveService, primeAudioForSession, type AIRALiveCallbacks } from './services/geminiLiveService';
 import { LocalAssistantService, type AssistantEngine } from './services/localAssistantService';
-import { CLIENT_ID, WakeWatcher } from './services/wakeWord';
+import { CLIENT_ID, WakeWatcher, loadWakePref } from './services/wakeWord';
 
 /** Shares a line of conversation with the other open Ultron windows (computer and phone). */
 function shareActivity(kind: 'user' | 'ai', text: string) {
@@ -349,6 +349,8 @@ const NeuralCoreDeck = ({
   onOpenModal,
   isActive,
   onToggle,
+  wakeOn,
+  onToggleWake,
   audioLevel,
   status,
   airaEmotion,
@@ -356,6 +358,8 @@ const NeuralCoreDeck = ({
   onOpenModal: (nodeId: CoreNodeConfig['id']) => void;
   isActive: boolean;
   onToggle: () => void;
+  wakeOn: boolean;
+  onToggleWake: () => void;
   audioLevel: number;
   status: string;
   airaEmotion?: string;
@@ -444,6 +448,21 @@ const NeuralCoreDeck = ({
             <Mic className="h-[18px] w-[18px]" />
           </button>
         </div>
+
+        {!(window as any).airaDesktop?.isElectron && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={wakeOn}
+          onClick={onToggleWake}
+          className="relative mt-3 flex items-center gap-2.5 rounded-full px-2 py-1 text-[12px] text-white/65 hover:text-white/90 transition-colors"
+        >
+          <span className={`relative h-5 w-9 rounded-full transition-colors ${wakeOn ? 'bg-cyan-400/80' : 'bg-white/15'}`}>
+            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left] ${wakeOn ? 'left-[18px]' : 'left-0.5'}`} />
+          </span>
+          {wakeOn ? 'Listening for "Ultron" when idle' : 'Wake word off, mic fully off when idle'}
+        </button>
+        )}
       </section>
 
       <div className="order-3 md:order-none col-span-2 md:col-span-1 grid grid-cols-2 gap-3 md:flex md:flex-col">
@@ -1780,6 +1799,13 @@ export default function App() {
   const wakeRefs = React.useRef({ isActive, startAiraSession, handleSendMessage, applyRemoteSwitch });
   wakeRefs.current = { isActive, startAiraSession, handleSendMessage, applyRemoteSwitch };
   const wakeRef = React.useRef<WakeWatcher | null>(null);
+  const [wakeOn, setWakeOn] = React.useState(loadWakePref);
+  const toggleWake = React.useCallback(() => {
+    setWakeOn((on) => {
+      wakeRef.current?.setWakeEnabled(!on);
+      return !on;
+    });
+  }, []);
   React.useEffect(() => {
     const watcher = new WakeWatcher(
       async (command) => {
@@ -1854,6 +1880,8 @@ export default function App() {
             }}
             isActive={isActive}
             onToggle={toggleAira}
+            wakeOn={wakeOn}
+            onToggleWake={toggleWake}
             audioLevel={audioLevel}
             status={status}
             airaEmotion={airaEmotion}

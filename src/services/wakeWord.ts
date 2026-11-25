@@ -26,6 +26,30 @@ export function matchWake(transcript: string): string | null {
 
 export type ActivityItem = { from: 'pc' | 'phone'; kind: 'user' | 'ai' | 'action'; text: string; clientId?: string; at: number };
 
+const WAKE_PREF_KEY = 'ultron.wakeWord';
+
+/** True on phones and tablets, where an always-open mic shows the orange/green dot. */
+export const IS_PHONE = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+/**
+ * Whether this device listens for "Ultron" while idle. Phones default to off:
+ * there the PC listens, and the phone mic is only used while Connect is on.
+ */
+export function loadWakePref(): boolean {
+  try {
+    const v = localStorage.getItem(WAKE_PREF_KEY);
+    if (v === 'on') return true;
+    if (v === 'off') return false;
+  } catch {}
+  return !IS_PHONE;
+}
+
+export function saveWakePref(on: boolean) {
+  try {
+    localStorage.setItem(WAKE_PREF_KEY, on ? 'on' : 'off');
+  } catch {}
+}
+
 /** This window's id, so it can skip its own activity echoes and report its session state. */
 export const CLIENT_ID = Math.random().toString(36).slice(2, 12);
 
@@ -39,6 +63,8 @@ export class WakeWatcher {
   private browserWanted = false;
   private stopped = false;
   private needsTap = false;
+  private enabled = loadWakePref();
+  private onVisibility = () => this.apply();
 
   constructor(onWake: (command: string, source: string) => void, onActivity: (item: ActivityItem) => void = () => {}) {
     this.onWake = onWake;
@@ -47,11 +73,13 @@ export class WakeWatcher {
 
   start() {
     this.stopped = false;
+    document.addEventListener('visibilitychange', this.onVisibility);
     void this.streamEvents();
   }
 
   stop() {
     this.stopped = true;
+    document.removeEventListener('visibilitychange', this.onVisibility);
     this.abort?.abort();
     this.setBrowserListening(false);
   }
@@ -59,7 +87,19 @@ export class WakeWatcher {
   /** Browser wake listening runs only while Ultron is idle, so it never fights the live mic. */
   setBrowserListening(on: boolean) {
     this.browserWanted = on;
-    if (on) this.startBrowser();
+    this.apply();
+  }
+
+  /** The user's switch for wake-word listening on this device (remembered). */
+  setWakeEnabled(on: boolean) {
+    this.enabled = on;
+    saveWakePref(on);
+    this.apply();
+  }
+
+  /** The mic is open only when wanted, switched on, and the page is on screen. */
+  private apply() {
+    if (this.browserWanted && this.enabled && !this.stopped && document.visibilityState === 'visible') this.startBrowser();
     else this.stopBrowser();
   }
 
@@ -114,7 +154,7 @@ export class WakeWatcher {
       };
       rec.onend = () => {
         this.recognition = null;
-        if (this.browserWanted && !this.stopped && !this.needsTap) window.setTimeout(() => this.startBrowser(), 400);
+        if (!this.needsTap) window.setTimeout(() => this.apply(), 400);
       };
       rec.onerror = (e: any) => {
         if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
@@ -123,7 +163,7 @@ export class WakeWatcher {
           this.needsTap = true;
           window.addEventListener('pointerdown', () => {
             this.needsTap = false;
-            if (this.browserWanted && !this.stopped) this.startBrowser();
+            this.apply();
           }, { once: true });
         }
       };
@@ -139,8 +179,10 @@ export class WakeWatcher {
     this.recognition = null;
     if (rec) {
       rec.onend = null;
+      rec.onresult = null;
       try {
-        rec.stop();
+        // abort() releases the mic at once (stop() waits for a final result).
+        rec.abort();
       } catch {}
     }
   }
